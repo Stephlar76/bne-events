@@ -95,22 +95,45 @@ async function fetchBCCDataset(datasetId, date) {
 }
 
 // ── MAP BCC RECORD TO EVENT OBJECT ────────────────────────────────────────────
+function parseBCCTime(r) {
+  // formatteddatetime looks like "Thursday, 23 April 2026, 10am - 2:30pm"
+  // or "Saturday, 25 April 2026, 7:30pm"
+  // Extract the START time only
+  const fmt = r.formatteddatetime || "";
+  const timeMatch = fmt.match(/,\s*(\d+(?::\d+)?(?:am|pm))/i);
+  if (timeMatch) return timeMatch[1].toUpperCase();
+
+  // Fallback: parse start_datetime as UTC and convert to Brisbane time
+  const startDate = r.start_datetime || "";
+  if (!startDate) return "";
+  try {
+    return new Date(startDate).toLocaleTimeString("en-AU", {
+      hour: "numeric", minute: "2-digit", hour12: true, timeZone: "Australia/Brisbane"
+    });
+  } catch { return ""; }
+}
 function mapBCCRecord(r, datasetId) {
   const title = r.subject || r.event_name || r.title || "Brisbane Event";
-  const startDate = r.start_datetime || r.date_start || "";
-  const timeMatch = (r.formatteddatetime || "").match(/(\d+(?::\d+)?(?:am|pm))/i);
-  const time = timeMatch ? timeMatch[1].toUpperCase() : (startDate ? new Date(startDate).toLocaleTimeString("en-AU", {
-    hour: "numeric", minute: "2-digit", hour12: true, timeZone: "Australia/Brisbane"
-  }) : "");
+  const time = parseBCCTime(r);
   const costStr = (r.cost || "").toString().toLowerCase().trim();
   const isFree = costStr === "" || costStr === "free" || costStr === "0" || costStr.startsWith("free");
   const catText = `${title} ${(r.event_type || []).join(" ")} ${r.primaryeventtype || ""} ${r.activitytype || ""} ${r.description || ""}`;
+
+  // Detect if event is evening (5pm+) — used to show under nightlife filter too
+  const isEvening = (() => {
+    const t = time.toLowerCase();
+    if (t.includes("pm")) {
+      const hour = parseInt(t);
+      return hour >= 5 && hour !== 12;
+    }
+    return false;
+  })();
 
   // Extract external booking URL from bookings HTML
   const bookingMatch = (r.bookings || "").match(/href="([^"#][^"]+)"/);
   const externalBookingUrl = bookingMatch ? bookingMatch[1] : null;
 
-  // Build direct BCC event page URL from eventid in web_link
+  // Build direct BCC event page URL
   const eventIdMatch = (r.web_link || "").match(/eventid(?:%3[Dd]|=)(\d+)/i);
   const eventId = eventIdMatch ? eventIdMatch[1] : null;
   const slug = title.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "");
@@ -119,6 +142,8 @@ function mapBCCRecord(r, datasetId) {
     : "https://www.brisbane.qld.gov.au/whats-on";
 
   const eventUrl = (!isFree && externalBookingUrl) ? externalBookingUrl : bccEventPage;
+
+  const category = detectCategory(catText);
 
   return {
     id: `bcc_${datasetId}_${eventId || Math.random().toString(36).slice(2)}`,
@@ -129,7 +154,9 @@ function mapBCCRecord(r, datasetId) {
     time,
     price: isFree ? "Free" : (r.cost || "See website"),
     isFree,
-    category: detectCategory(catText),
+    category,
+    // isEvening flag lets the frontend show this under nightlife filter too
+    isEvening,
     tags: (r.event_type || r.libraryeventtypes || []).map(t => t.toLowerCase()).slice(0, 3),
     description: (r.description || "").replace(/<[^>]*>/g, "").slice(0, 350),
     url: eventUrl,
@@ -173,22 +200,34 @@ async function fetchBrisbaneCityCouncil(date) {
   });
 }
 
-// ── FALLBACK (only when real APIs return < 5 events total) ────────────────────
-function generateFallback(date) {
-  const dow = new Date(date + "T12:00:00").getDay();
-  const isWknd = dow === 0 || dow === 6;
-  const EVENTS = [
-    { cat:"music", venue:"The Triffid", suburb:"Newstead", url:"https://thetriffid.com.au", title:"Live Music — The Triffid", time:"7:30 PM", price:"See website", isFree:false, tags:["live music"] },
-    { cat:"music", venue:"Fortitude Music Hall", suburb:"Fortitude Valley", url:"https://fortitudemusichall.com", title:"Live Concert — Fortitude Music Hall", time:"8:00 PM", price:"See website", isFree:false, tags:["concert"] },
-    { cat:"nightlife", venue:"Cloudland", suburb:"Fortitude Valley", url:"https://cloudland.com.au", title:"Night Out — Cloudland", time:"9:00 PM", price:"See website", isFree:false, tags:["nightclub"] },
-    { cat:"arts", venue:"GOMA", suburb:"South Brisbane", url:"https://www.qagoma.qld.gov.au/whats-on", title:"Current Exhibition — GOMA", time:"10:00 AM", price:"Free", isFree:true, tags:["gallery"] },
-    { cat:"comedy", venue:"Sit Down Comedy Club", suburb:"Fortitude Valley", url:"https://sitdowncomedy.com.au", title:"Stand-Up Night", time:"7:30 PM", price:"See website", isFree:false, tags:["comedy"] },
-    { cat:"outdoors", venue:"South Bank Parklands", suburb:"South Bank", url:"https://www.brisbane.qld.gov.au/whats-on", title:"Parkrun — South Bank", time:"7:00 AM", price:"Free", isFree:true, tags:["parkrun"] },
-    { cat:"sports", venue:"Suncorp Stadium", suburb:"Milton", url:"https://premier.ticketek.com.au", title:"Live Sport — Suncorp Stadium", time:"7:00 PM", price:"See website", isFree:false, tags:["sport"] },
+// ── PERMANENT VENUES (shown when real data is sparse) ────────────────────────
+// These are real Brisbane venues that ALWAYS have events — we link to their
+// events pages directly. No fake events, just real venue discovery.
+function getPermanentVenues() {
+  return [
+    // MUSIC
+    { id:"pv_1", cat:"music", title:"What's On — The Triffid", venue:"The Triffid", suburb:"Newstead", time:"", price:"Various", isFree:false, tags:["live music","indie"], url:"https://thetriffid.com.au/whats-on/", source:"fallback", isLive:false, description:"Brisbane's home for live music in a converted WW2 hangar. Check their events page for upcoming gigs." },
+    { id:"pv_2", cat:"music", title:"What's On — Fortitude Music Hall", venue:"Fortitude Music Hall", suburb:"Fortitude Valley", time:"", price:"Various", isFree:false, tags:["live music","concert"], url:"https://fortitudemusichall.com/whats-on/", source:"fallback", isLive:false, description:"Brisbane's grandest live music venue. Check their calendar for upcoming concerts." },
+    { id:"pv_3", cat:"music", title:"What's On — The Zoo", venue:"The Zoo", suburb:"Fortitude Valley", time:"", price:"Various", isFree:false, tags:["live music","indie"], url:"https://thezoo.com.au/whats-on/", source:"fallback", isLive:false, description:"Iconic Brisbane live music pub. Always something happening — check their full calendar." },
+    { id:"pv_4", cat:"music", title:"What's On — The Tivoli", venue:"The Tivoli", suburb:"Fortitude Valley", time:"", price:"Various", isFree:false, tags:["live music","concert"], url:"https://thetivoli.com.au/events/", source:"fallback", isLive:false, description:"One of Brisbane's most loved live music venues. See the full upcoming event schedule." },
+    // ARTS
+    { id:"pv_5", cat:"arts", title:"What's On — Brisbane Powerhouse", venue:"Brisbane Powerhouse", suburb:"New Farm", time:"", price:"Various", isFree:false, tags:["theatre","arts","comedy"], url:"https://brisbanepowerhouse.org/events/", source:"fallback", isLive:false, description:"Queensland's home for contemporary culture. Theatre, comedy, music, festivals and more." },
+    { id:"pv_6", cat:"arts", title:"What's On — QPAC", venue:"QPAC", suburb:"South Brisbane", time:"", price:"Various", isFree:false, tags:["theatre","dance","opera"], url:"https://qpac.com.au/whats-on", source:"fallback", isLive:false, description:"Queensland's premier performing arts centre. Opera, ballet, theatre and major productions." },
+    { id:"pv_7", cat:"arts", title:"What's On — GOMA", venue:"Gallery of Modern Art", suburb:"South Brisbane", time:"10:00 AM", price:"Free", isFree:true, tags:["gallery","exhibition","free"], url:"https://www.qagoma.qld.gov.au/whats-on", source:"fallback", isLive:false, description:"World-class art gallery. Free entry to the permanent collection. Special exhibitions vary." },
+    // COMEDY
+    { id:"pv_8", cat:"comedy", title:"What's On — Sit Down Comedy Club", venue:"Sit Down Comedy Club", suburb:"Fortitude Valley", time:"7:30 PM", price:"Various", isFree:false, tags:["comedy","stand-up"], url:"https://sitdowncomedy.com.au", source:"fallback", isLive:false, description:"Brisbane's dedicated comedy club. Weekly shows from local and touring comedians." },
+    // NIGHTLIFE
+    { id:"pv_9", cat:"nightlife", title:"What's On — Cloudland", venue:"Cloudland", suburb:"Fortitude Valley", time:"9:00 PM", price:"Various", isFree:false, tags:["nightclub","dancing"], url:"https://cloudland.com.au/events/", source:"fallback", isLive:false, description:"Brisbane's most iconic nightclub. Multiple rooms, rooftop, world-class DJs. Check their events." },
+    { id:"pv_10", cat:"nightlife", title:"What's On — The Wickham", venue:"The Wickham Hotel", suburb:"Fortitude Valley", time:"", price:"Various", isFree:false, tags:["lgbtq+","bar","nightlife"], url:"https://thewickham.com.au/whats-on/", source:"fallback", isLive:false, description:"Brisbane's iconic LGBTQ+ venue. Drag shows, DJ nights, rooftop bar events." },
+    // FOOD
+    { id:"pv_11", cat:"food", title:"West End Markets — Every Saturday", venue:"Davies Park", suburb:"West End", time:"6:00 AM", price:"Free entry", isFree:true, tags:["markets","food","weekly"], url:"https://westendmarket.com.au", source:"fallback", isLive:false, description:"Every Saturday 6am–2pm. 150+ vendors, fresh produce, street food, live music. Free entry." },
+    { id:"pv_12", cat:"food", title:"Jan Powers Farmers Markets — Powerhouse", venue:"Brisbane Powerhouse", suburb:"New Farm", time:"6:00 AM", price:"Free entry", isFree:true, tags:["markets","farmers","weekly"], url:"https://janpowersfarmersmarkets.com.au", source:"fallback", isLive:false, description:"Every Saturday morning. Brisbane's best farmers market with artisan produce and food stalls." },
+    // OUTDOORS
+    { id:"pv_13", cat:"outdoors", title:"Parkrun — Every Saturday 7am", venue:"South Bank Parklands", suburb:"South Bank", time:"7:00 AM", price:"Free", isFree:true, tags:["running","parkrun","free"], url:"https://www.parkrun.com.au/brisbane/", source:"fallback", isLive:false, description:"Free 5km timed run every Saturday at 7am. All paces welcome. Register free at parkrun.com.au." },
+    // COMMUNITY
+    { id:"pv_14", cat:"community", title:"What's On — River City Labs", venue:"River City Labs", suburb:"Fortitude Valley", time:"", price:"Various", isFree:false, tags:["tech","networking","startup"], url:"https://rivercitylabs.net/events/", source:"fallback", isLive:false, description:"Brisbane's leading startup hub. Tech meetups, networking events, workshops and more." },
+    { id:"pv_15", cat:"community", title:"Brisbane Meetup Events", venue:"Various Brisbane Venues", suburb:"Brisbane", time:"", price:"Various", isFree:true, tags:["meetup","social","community"], url:"https://www.meetup.com/find/au--brisbane/", source:"fallback", isLive:false, description:"Hundreds of Brisbane Meetup groups — hiking, language exchange, board games, tech, trivia and more." },
   ];
-  return EVENTS
-    .filter(() => !isWknd || true)
-    .map((e, i) => ({ ...e, id: `fb_${i}`, source: "fallback", isLive: false }));
 }
 
 function dedup(arr) {
@@ -219,7 +258,7 @@ export default async function handler(req, res) {
 
     console.log(`Total: TM=${tmEvents.length} BCC=${bccEvents.length} Live=${liveEvents.length}`);
 
-    const fallback = liveEvents.length < 5 ? generateFallback(date) : [];
+    const fallback = liveEvents.length < 5 ? getPermanentVenues() : [];
     const all = dedup([...liveEvents, ...fallback]);
 
     return res.status(200).json({

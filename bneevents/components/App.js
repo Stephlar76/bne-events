@@ -4,7 +4,7 @@ import Head from "next/head";
 const CAT_ICONS = { music:"🎵", arts:"🎨", food:"🍜", outdoors:"🥾", comedy:"😂", sports:"⚽", community:"🤝", nightlife:"🌙", family:"👨‍👩‍👧", other:"📌" };
 const CAT_LABELS = { music:"Music", arts:"Arts & Culture", food:"Food & Drink", outdoors:"Outdoors", comedy:"Comedy", sports:"Sports", community:"Community", nightlife:"Nightlife", family:"Family", other:"Other" };
 const FILTERS = ["all","music","nightlife","arts","comedy","food","community","outdoors","sports","family","free"];
-const SOURCE_COLORS = { eventbrite:"#F5E642", ticketmaster:"#026CDF", humanitix:"#00B4D8", fallback:"#444", community:"#C77DFF" };
+const SOURCE_COLORS = { eventbrite:"#F5E642", ticketmaster:"#026CDF", humanitix:"#00B4D8", fallback:"#444", community:"#C77DFF", brisbanecouncil:"#FF9F1C" };
 
 function getDOW(s) { return new Date(s+"T12:00:00").toLocaleDateString("en-AU",{weekday:"long"}); }
 function getFmt(s) { return new Date(s+"T12:00:00").toLocaleDateString("en-AU",{day:"numeric",month:"long",year:"numeric"}); }
@@ -250,6 +250,7 @@ export default function App() {
         .card-address{font-size:0.75rem;color:#777;margin-bottom:12px}
         .card-actions{display:flex;gap:8px}
         .btn-ticket{flex:1;background:#F5E642;color:#0A0A0A;border:none;border-radius:8px;padding:10px 14px;font-weight:700;font-size:0.82rem;text-decoration:none;text-align:center;display:block;cursor:pointer;font-family:inherit}
+        .btn-free{background:#2ECC71;color:#0A0A0A;}
         .btn-share{background:transparent;color:#E8E8E8;border:1px solid #252525;border-radius:8px;padding:10px 14px;font-size:0.82rem;cursor:pointer;font-family:inherit}
         .card-source{margin-top:10px;font-size:0.6rem;color:#777;display:flex;align-items:center;gap:5px}
         .source-dot{width:5px;height:5px;border-radius:50%;display:inline-block}
@@ -290,7 +291,9 @@ function EventCard({e,expanded,onToggle,delay=0}){
           {e.description&&<div className="card-desc">{e.description}</div>}
           {e.address&&<div className="card-address">📌 {e.address}</div>}
           <div className="card-actions">
-            {e.url&&<a href={e.url} target="_blank" rel="noopener noreferrer" onClick={ev=>ev.stopPropagation()} className="btn-ticket">{e.isLive?"Get Tickets →":"More Info →"}</a>}
+            {e.url&&<a href={e.url} target="_blank" rel="noopener noreferrer" onClick={ev=>ev.stopPropagation()} className={`btn-ticket${e.isFree?" btn-free":""}`}>
+              {e.isFree?"More Info →":"Get Tickets →"}
+            </a>}
             <button onClick={share} className="btn-share">↗ Share</button>
           </div>
           <div className="card-source">

@@ -243,36 +243,12 @@ function mapBCCRecord(r, datasetId) {
 
 // ── ALL BCC SOURCES ───────────────────────────────────────────────────────────
 async function fetchBrisbaneCityCouncil(date) {
-  // All confirmed working BCC datasets on the same API
-  const DATASETS = [
-    "brisbane-city-council-events",    // Master: creative, parks, libraries, active & healthy, botanic gardens
-    "brisbane-powerhouse-events",      // Brisbane Powerhouse theatre & arts
-    "business-events",                 // Networking, seminars, professional events
-    "classes-and-workshops-events",    // Skills, crafts, workshops
-    "city-hall-events",                // City Hall events
-  ];
-
-  const results = await Promise.allSettled(
-    DATASETS.map(ds => fetchBCCDataset(ds, date))
-  );
-
-  const allRecords = [];
-  results.forEach((r, i) => {
-    if (r.status === "fulfilled") {
-      r.value.forEach(record => {
-        allRecords.push(mapBCCRecord(record, DATASETS[i]));
-      });
-    }
-  });
-
-  // Deduplicate across datasets by event title + time
-  const seen = new Set();
-  return allRecords.filter(e => {
-    const key = (e.title + e.time).toLowerCase().replace(/[^a-z0-9]/g, "").slice(0, 40);
-    if (seen.has(key)) return false;
-    seen.add(key);
-    return true;
-  });
+  // The master dataset already includes ALL sub-categories:
+  // creative, parks, libraries, active & healthy, botanic gardens, powerhouse,
+  // business events, workshops, city hall — everything in one call.
+  // Using sub-datasets in parallel was causing Vercel timeout on free tier.
+  const records = await fetchBCCDataset("brisbane-city-council-events", date);
+  return records.map(r => mapBCCRecord(r, "brisbane-city-council-events"));
 }
 
 // ── PERMANENT VENUES (shown when real data is sparse) ────────────────────────

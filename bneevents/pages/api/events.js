@@ -145,15 +145,15 @@ async function fetchTicketmaster(date) {
 // ── BCC DATASET FETCHER (reusable for all BCC datasets) ───────────────────────
 async function fetchBCCDataset(datasetId, date) {
   try {
-    // BCC stores datetimes in UTC. Brisbane is UTC+10, no daylight saving.
-    // So "2026-04-24" in Brisbane = 2026-04-23T14:00:00Z to 2026-04-24T13:59:59Z
-    const startUTC = `${date}T14:00:00Z`; // previous day 2pm UTC = midnight Brisbane
-    // Calculate the next day for end boundary
-    const d = new Date(`${date}T14:00:00Z`);
-    d.setUTCDate(d.getUTCDate() + 1);
-    const endUTC = d.toISOString().replace(".000Z", "Z"); // next day 2pm UTC = midnight next day Brisbane
+    // BCC stores datetimes in UTC. Brisbane is UTC+10 (no daylight saving).
+    // "2026-04-24" Brisbane = 2026-04-23T14:00:00Z to 2026-04-24T13:59:59Z
+    const [year, month, day] = date.split("-").map(Number);
+    const startBrisbane = new Date(Date.UTC(year, month - 1, day, 0, 0, 0)); // midnight Brisbane
+    const startUTC = new Date(startBrisbane.getTime() - 10 * 60 * 60 * 1000); // subtract 10hrs → UTC
+    const endUTC = new Date(startUTC.getTime() + 24 * 60 * 60 * 1000 - 1000); // +24hrs -1s
 
-    const where = `start_datetime >= "${startUTC}" AND start_datetime < "${endUTC}"`;
+    const fmt = d => d.toISOString().replace(".000Z", "Z");
+    const where = `start_datetime >= "${fmt(startUTC)}" AND start_datetime <= "${fmt(endUTC)}"`;
     const url = `https://data.brisbane.qld.gov.au/api/explore/v2.1/catalog/datasets/${datasetId}/records?limit=100&order_by=start_datetime&where=${encodeURIComponent(where)}`;
     const res = await fetch(url, { headers: { "Accept": "application/json" } });
     if (!res.ok) {
@@ -162,7 +162,7 @@ async function fetchBCCDataset(datasetId, date) {
     }
     const data = await res.json();
     const records = data.results || [];
-    console.log(`BCC ${datasetId}: ${records.length} records`);
+    console.log(`BCC ${datasetId}: ${records.length} records for ${date} (UTC: ${fmt(startUTC)} to ${fmt(endUTC)})`);
     return records;
   } catch (err) {
     console.error(`BCC ${datasetId} fetch error:`, err.message);

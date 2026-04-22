@@ -238,6 +238,116 @@ async function fetchHumanitix(date) {
   }
 }
 
+// ── BRISBANE CITY COUNCIL OPEN DATA (free, no key needed) ─────────────────────
+// Covers: Powerhouse, Creative, Music, Botanic Gardens, Workshops, Business events
+async function fetchBrisbaneCityCouncil(date) {
+  try {
+    const datasets = [
+      "brisbane-city-council-events",
+      "brisbane-powerhouse-events",
+      "creative-events",
+      "music-events",
+    ];
+
+    const BASE = "https://data.brisbane.qld.gov.au/api/explore/v2.1/catalog/datasets";
+
+    const results = await Promise.allSettled(
+      datasets.map(ds =>
+        fetch(`${BASE}/${ds}/records?limit=100&order_by=date_start&where=date_start%3E%3D%22${date}%22%20AND%20date_start%3C%3D%22${date}T23%3A59%3A59%22`, {
+          headers: { "Accept": "application/json" },
+          next: { revalidate: 3600 },
+        }).then(r => r.ok ? r.json() : { results: [] })
+      )
+    );
+
+    const allRecords = [];
+    results.forEach(r => {
+      if (r.status === "fulfilled" && r.value?.results) {
+        allRecords.push(...r.value.results);
+      }
+    });
+
+    // Deduplicate by title
+    const seen = new Set();
+    const unique = allRecords.filter(r => {
+      const key = (r.event_name || r.title || "").toLowerCase().slice(0, 30);
+      if (seen.has(key)) return false;
+      seen.add(key);
+      return true;
+    });
+
+    return unique.map(e => {
+      const title = e.event_name || e.title || "Brisbane Event";
+      const startDate = e.date_start || e.startdate || "";
+      const time = startDate ? new Date(startDate).toLocaleTimeString("en-AU", {
+        hour: "numeric", minute: "2-digit", hour12: true, timeZone: "Australia/Brisbane"
+      }) : "";
+      const isFree = (e.cost || "").toLowerCase().includes("free") || e.cost === "0" || e.is_free;
+      const price = isFree ? "Free" : (e.cost || e.price || "See website");
+      const catText = `${title} ${e.category || ""} ${e.event_type || ""} ${e.description || ""}`;
+
+      return {
+        id: `bcc_${e.id || Math.random().toString(36).slice(2)}`,
+        title,
+        venue: e.venue_name || e.location || "Brisbane",
+        suburb: e.suburb || e.location_suburb || "Brisbane",
+        address: [e.street_address, e.suburb].filter(Boolean).join(", "),
+        time,
+        price,
+        isFree: !!isFree,
+        category: detectCategory(catText),
+        tags: [e.category, e.event_type].filter(Boolean).map(t => t.toLowerCase()),
+        description: (e.description || e.summary || "").slice(0, 350),
+        url: e.url || e.booking_url || e.website || "https://www.brisbane.qld.gov.au/whats-on",
+        image: e.image || null,
+        source: "brisbanecouncil",
+        isLive: true,
+      };
+    });
+  } catch (err) {
+    console.error("Brisbane Council fetch error:", err);
+    return [];
+  }
+}
+
+// ── SONGKICK (free public API for live music) ─────────────────────────────────
+async function fetchSongkick(date) {
+  try {
+    // Songkick has a free API - Brisbane metro area ID is 26778
+    const apiKey = process.env.SONGKICK_KEY || "";
+    if (!apiKey) return [];
+    const params = new URLSearchParams({
+      apikey: apiKey,
+      min_date: date,
+      max_date: date,
+      per_page: "50",
+    });
+    const res = await fetch(`https://api.songkick.com/api/3.0/metro_areas/26778/calendar.json?${params}`);
+    if (!res.ok) return [];
+    const data = await res.json();
+    const events = data.resultsPage?.results?.event || [];
+    return events.map(e => ({
+      id: `sk_${e.id}`,
+      title: e.displayName,
+      venue: e.venue?.displayName || "Brisbane",
+      suburb: e.venue?.city?.displayName || "Brisbane",
+      address: "",
+      time: e.start?.time ? new Date(`2000-01-01T${e.start.time}`).toLocaleTimeString("en-AU", { hour:"numeric", minute:"2-digit", hour12:true }) : "",
+      price: "See website",
+      isFree: false,
+      category: "music",
+      tags: ["live music", "concert"],
+      description: "",
+      url: e.uri || "https://songkick.com",
+      image: null,
+      source: "songkick",
+      isLive: true,
+    }));
+  } catch (err) {
+    return [];
+  }
+}
+
 // ── FALLBACK DATABASE ─────────────────────────────────────────────────────────
 function generateFallback(date) {
   const dow = new Date(date + "T12:00:00").getDay();
@@ -338,27 +448,25 @@ export default async function handler(req, res) {
 
   try {
     // Fetch real events in parallel from all sources
-    const [ebEvents, tmEvents, hxEvents] = await Promise.allSettled([
+    const [ebEvents, tmEvents, hxEvents, bccEvents] = await Promise.allSettled([
       fetchEventbrite(date),
       fetchTicketmaster(date),
       fetchHumanitix(date),
+      fetchBrisbaneCityCouncil(date),
     ]);
 
     const liveEvents = [
       ...(ebEvents.status === "fulfilled" ? ebEvents.value : []),
       ...(tmEvents.status === "fulfilled" ? tmEvents.value : []),
       ...(hxEvents.status === "fulfilled" ? hxEvents.value : []),
+      ...(bccEvents.status === "fulfilled" ? bccEvents.value : []),
     ];
 
-    // Generate fallback for categories not covered by live data
-    const fallback = generateFallback(date);
-    const coveredCats = new Set(liveEvents.map(e => e.category));
-    const fillIn = liveEvents.length > 5
-      ? fallback.filter(e => !coveredCats.has(e.category))
-      : fallback;
+    // Only use fallback if we have very few real events
+    const fallback = liveEvents.length < 5 ? generateFallback(date) : [];
+    const all = dedup([...liveEvents, ...fallback]);
 
-    const all = dedup([...liveEvents, ...fillIn]);
-
+    const bccCount = bccEvents.status === "fulfilled" ? bccEvents.value.length : 0;
     const hxCount = hxEvents.status === "fulfilled" ? hxEvents.value.length : 0;
 
     return res.status(200).json({
@@ -371,7 +479,8 @@ export default async function handler(req, res) {
           eventbrite: ebEvents.status === "fulfilled" ? ebEvents.value.length : 0,
           ticketmaster: tmEvents.status === "fulfilled" ? tmEvents.value.length : 0,
           humanitix: hxCount,
-          fallback: all.length - liveEvents.length,
+          brisbanecouncil: bccCount,
+          fallback: fallback.length,
         }
       }
     });

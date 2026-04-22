@@ -105,10 +105,25 @@ async function fetchBrisbaneCityCouncil(date) {
       const isFree = costStr === "" || costStr === "free" || costStr === "0" || costStr.startsWith("free");
       const catText = `${title} ${(r.event_type || []).join(" ")} ${r.primaryeventtype || ""} ${r.description || ""}`;
 
-      // Extract direct booking URL from the bookings HTML field if available
-      const bookingMatch = (r.bookings || "").match(/href="([^"]+)"/);
-      const directUrl = bookingMatch ? bookingMatch[1] : null;
-      const eventUrl = directUrl || r.web_link || "https://www.brisbane.qld.gov.au/whats-on";
+      // URL logic:
+      // - Paid events with bookings field: extract the external booking URL  
+      // - Free events: use the proper BCC event page URL
+      // BCC web_link contains Trumba embed URL with eventid param
+      // Real event page is at brisbane.qld.gov.au/whats-on-and-events/event/{subject-slug}-{eventid}
+      const bookingMatch = (r.bookings || "").match(/href="([^"#][^"]+)"/);
+      const externalBookingUrl = bookingMatch ? bookingMatch[1] : null;
+      
+      // Extract eventid from web_link to build direct BCC event page URL
+      const eventIdMatch = (r.web_link || "").match(/eventid%3d(\d+)|eventid=(\d+)/i);
+      const eventId = eventIdMatch ? (eventIdMatch[1] || eventIdMatch[2]) : null;
+      const slug = title.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "");
+      const bccEventPage = eventId 
+        ? `https://www.brisbane.qld.gov.au/whats-on-and-events/event/${slug}-${eventId}`
+        : r.web_link || "https://www.brisbane.qld.gov.au/whats-on";
+
+      const eventUrl = (!isFree && externalBookingUrl) 
+        ? externalBookingUrl 
+        : bccEventPage;
 
       return {
         id: `bcc_${Math.random().toString(36).slice(2)}`,

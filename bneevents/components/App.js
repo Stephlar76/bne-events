@@ -16,7 +16,7 @@ const VENUES = [
   { id:"v5", cat:"music", name:"Brisbane Powerhouse", suburb:"New Farm", type:"Arts & Music Venue", desc:"Queensland's home for contemporary culture. Theatre, comedy, music festivals and more in a stunning riverside venue.", url:"https://brisbanepowerhouse.org/events/" },
   { id:"v6", cat:"music", name:"QPAC", suburb:"South Brisbane", type:"Performing Arts Centre", desc:"Queensland's premier performing arts centre. Opera, ballet, theatre and major productions.", url:"https://qpac.com.au/whats-on" },
   // NIGHTLIFE
-  { id:"v7", cat:"nightlife", name:"Cloudland", suburb:"Fortitude Valley", type:"Nightclub & Bar", desc:"Brisbane's most iconic nightclub. Multiple rooms, retractable roof garden, world-class DJs every weekend.", url:"https://www.cloudland.tv/" },
+  { id:"v7", cat:"nightlife", name:"Cloudland", suburb:"Fortitude Valley", type:"Nightclub & Bar", desc:"Brisbane's most iconic nightclub. Multiple rooms, retractable roof garden, world-class DJs every weekend.", url:"https://www.cloudland.tv/whats-on-cloudland/" },
   { id:"v8", cat:"nightlife", name:"The Wickham Hotel", suburb:"Fortitude Valley", type:"LGBTQ+ Pub & Bar", desc:"Brisbane's iconic LGBTQ+ venue. Drag shows, DJ nights, rooftop bar and a welcoming crowd every night.", url:"https://thewickham.com.au/live-entertainment/" },
   { id:"v9", cat:"nightlife", name:"Black Bear Lodge", suburb:"Fortitude Valley", type:"Live Music Bar", desc:"Cosy, intimate bar with live music most nights. Great craft beer selection and friendly local vibe.", url:"https://www.facebook.com/blackbearlodge/" },
   { id:"v10", cat:"nightlife", name:"Woolly Mammoth Saloon", suburb:"Fortitude Valley", type:"Live Music Bar", desc:"Rock and metal bar with live music and DJ nights. Open late, great atmosphere.", url:"https://www.woollymammoth.com.au/" },
@@ -192,9 +192,19 @@ export default function App() {
             {appStatus==="done"&&filtered.length===0&&(
               <div className="empty">
                 <div style={{fontSize:"2.5rem"}}>🗓️</div>
-                <div className="empty-title">No Events Found</div>
-                <p className="empty-sub">No events found for this date. Try another date — or browse the Venue Guide for permanent Brisbane spots.</p>
-                <button className="switch-btn" onClick={()=>setView("venues")}>🏢 Browse Venues →</button>
+                {events.length===0 ? (
+                  <>
+                    <div className="empty-title">No Events Found</div>
+                    <p className="empty-sub">Nothing listed for this date yet — BCC publishes events 4–6 weeks ahead. Try another date, or browse venues below.</p>
+                    <button className="switch-btn" onClick={()=>setView("venues")}>🏢 Browse Venues →</button>
+                  </>
+                ) : (
+                  <>
+                    <div className="empty-title">No {filter==="free"?"Free":CAT_LABELS[filter]||""} Events</div>
+                    <p className="empty-sub">No events match this filter for {getFmt(date)}. Tap All to see everything.</p>
+                    <button className="switch-btn" onClick={()=>setFilter("all")}>Show All Events</button>
+                  </>
+                )}
               </div>
             )}
 

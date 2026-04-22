@@ -25,7 +25,12 @@ export default function App() {
     try { setCommunity(JSON.parse(localStorage.getItem("bne_community")||"[]")); } catch {}
   }, []);
 
-  const filtered = filter==="all" ? events : filter==="free" ? events.filter(e=>e.isFree) : events.filter(e=>e.category===filter);
+  const filtered = (() => {
+    if (filter === "all") return events;
+    if (filter === "free") return events.filter(e => e.isFree);
+    if (filter === "nightlife") return events.filter(e => e.category === "nightlife" || (e.isEvening && ["music","arts","comedy"].includes(e.category)));
+    return events.filter(e => e.category === filter);
+  })();
 
   async function search() {
     setAppStatus("loading"); setExpandedId(null); setFilter("all"); setEvents([]); setMeta(null);
@@ -103,7 +108,7 @@ export default function App() {
             <div className="stats-sources">
               {meta.sources.ticketmaster>0&&<span className="pill tm">🔵 {meta.sources.ticketmaster} Ticketmaster</span>}
               {meta.sources.brisbanecouncil>0&&<span className="pill bcc">🟠 {meta.sources.brisbanecouncil} BCC Events</span>}
-              {meta.sources.fallback>0&&<span className="pill fb">⚫ {meta.sources.fallback} local guide</span>}
+              {meta.sources.fallback>0&&<span className="pill fb">📍 {meta.sources.fallback} venue guide</span>}
             </div>
           </div>
         )}
@@ -292,7 +297,7 @@ function EventCard({e,expanded,onToggle,delay=0}){
           {e.address&&<div className="card-address">📌 {e.address}</div>}
           <div className="card-actions">
             {e.url&&<a href={e.url} target="_blank" rel="noopener noreferrer" onClick={ev=>ev.stopPropagation()} className={`btn-ticket${e.isFree?" btn-free":""}`}>
-              {e.isFree?"More Info →":"Get Tickets →"}
+              {e.source==="fallback" ? "See Events →" : e.isFree ? "More Info →" : "Get Tickets →"}
             </a>}
             <button onClick={share} className="btn-share">↗ Share</button>
           </div>

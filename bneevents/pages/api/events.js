@@ -1,16 +1,23 @@
 // pages/api/events.js — BNE Events API
-// Sources: Ticketmaster (live) + Brisbane City Council Open Data (live) + Fallback
+// Confirmed working sources:
+// 1. Ticketmaster Discovery API (free key)
+// 2. Brisbane City Council Open Data — multiple datasets (free, no key)
+//    - brisbane-city-council-events (master: creative, parks, libraries, active & healthy, botanic gardens)
+//    - brisbane-powerhouse-events (separate feed)
+//    - business-events (networking, seminars, professional events)
+//    - classes-and-workshops-events (skills, crafts, workshops)
+//    - city-hall-events (City Hall specific events)
 
 const CAT_KEYWORDS = {
   music: ["music","concert","gig","band","live","jazz","folk","metal","indie","dj","electronic","classical","hip hop","festival","acoustic","blues","country","reggae","punk","rock","choir","orchestra","opera","recital"],
-  arts: ["art","gallery","exhibition","expo","theatre","theater","dance","film","cinema","craft","paint","sculpture","photography","design","fashion","ballet","performance","visual"],
+  arts: ["art","gallery","exhibition","expo","theatre","theater","dance","film","cinema","craft","paint","sculpture","photography","design","fashion","ballet","performance","visual","creative"],
   food: ["food","drink","wine","beer","cocktail","dining","restaurant","brunch","market","tasting","chef","cooking","coffee","brewery","gin","whiskey","distillery","farmers","culinary"],
-  outdoors: ["hike","walk","run","cycle","bike","kayak","nature","park","outdoor","trail","climb","swim","surf","adventure","fitness","yoga","meditation","wellness","bootcamp","beach","parkrun"],
-  comedy: ["comedy","stand-up","standup","improv","laugh","humour","comedian","comic"],
+  outdoors: ["hike","walk","run","cycle","bike","kayak","nature","park","outdoor","trail","climb","swim","surf","adventure","fitness","yoga","meditation","wellness","bootcamp","beach","parkrun","garden","botanic"],
+  comedy: ["comedy","stand-up","standup","improv","laugh","humour","comedian","comic","trivia","quiz"],
   sports: ["sport","football","rugby","cricket","basketball","tennis","golf","soccer","netball","athletics","swimming","boxing","ufc","nrl","afl","volleyball","triathlon","marathon"],
-  community: ["meetup","networking","social","community","volunteer","charity","fundraiser","workshop","seminar","talk","lecture","language","board game","trivia","quiz","book club","speed dating","karaoke","escape room","library"],
+  community: ["meetup","networking","social","community","volunteer","charity","fundraiser","workshop","seminar","talk","lecture","language","board game","trivia","quiz","book club","speed dating","karaoke","escape room","library","storytime","reading","writing","knitting","sewing","craft"],
   nightlife: ["nightclub","club","bar","pub","karaoke","party","rave","dj night","dance night","rooftop","lounge"],
-  family: ["family","kids","children","toddler","baby","school holiday","junior","youth","storytime"],
+  family: ["family","kids","children","toddler","baby","school holiday","junior","youth","storytime","playground"],
 };
 
 function detectCategory(text) {
@@ -67,104 +74,120 @@ async function fetchTicketmaster(date) {
   }
 }
 
-// ── BRISBANE CITY COUNCIL OPEN DATA ───────────────────────────────────────────
-// 1,002 real Brisbane events — free public API, no key needed
-async function fetchBrisbaneCityCouncil(date) {
+// ── BCC DATASET FETCHER (reusable for all BCC datasets) ───────────────────────
+async function fetchBCCDataset(datasetId, date) {
   try {
-    // Filter by start_datetime for the given date (UTC offset — BNE is UTC+10)
-    // 2026-04-25 in Brisbane = 2026-04-24T14:00:00Z to 2026-04-25T13:59:59Z
-    const startUTC = `${date}T14:00:00Z`; // midnight AEST previous day UTC
-    const endUTC   = `${date}T13:59:59Z`; // midnight AEST this day UTC
-    // Actually simpler — just use refine on the date portion
     const where = `start_datetime >= "${date}T00:00:00+10:00" AND start_datetime <= "${date}T23:59:59+10:00"`;
-    const url = `https://data.brisbane.qld.gov.au/api/explore/v2.1/catalog/datasets/brisbane-city-council-events/records?limit=100&order_by=start_datetime&where=${encodeURIComponent(where)}`;
-
-    console.log("BCC URL:", url);
+    const url = `https://data.brisbane.qld.gov.au/api/explore/v2.1/catalog/datasets/${datasetId}/records?limit=100&order_by=start_datetime&where=${encodeURIComponent(where)}`;
     const res = await fetch(url, { headers: { "Accept": "application/json" } });
-    console.log("BCC status:", res.status);
-
     if (!res.ok) {
-      const text = await res.text();
-      console.error("BCC error:", res.status, text.slice(0, 300));
+      console.error(`BCC ${datasetId} error:`, res.status);
       return [];
     }
-
     const data = await res.json();
     const records = data.results || [];
-    console.log(`BCC returned ${records.length} records`);
-
-    return records.map(r => {
-      const title = r.subject || "Brisbane Event";
-      const startDate = r.start_datetime || "";
-      // Use the formatted time from the API if available
-      const timeMatch = (r.formatteddatetime || "").match(/(\d+(?::\d+)?(?:am|pm))/i);
-      const time = timeMatch ? timeMatch[1].toUpperCase() : (startDate ? new Date(startDate).toLocaleTimeString("en-AU", {
-        hour: "numeric", minute: "2-digit", hour12: true, timeZone: "Australia/Brisbane"
-      }) : "");
-      const costStr = (r.cost || "").toString().toLowerCase().trim();
-      const isFree = costStr === "" || costStr === "free" || costStr === "0" || costStr.startsWith("free");
-      const catText = `${title} ${(r.event_type || []).join(" ")} ${r.primaryeventtype || ""} ${r.description || ""}`;
-
-      // Extract eventid from web_link to build the correct direct event page URL
-      // Format: brisbane.qld.gov.au/events/{slug}/{eventid}
-      const bookingMatch = (r.bookings || "").match(/href="([^"#][^"]+)"/);
-      const externalBookingUrl = bookingMatch ? bookingMatch[1] : null;
-
-      const eventIdMatch = (r.web_link || "").match(/eventid(?:%3[Dd]|=)(\d+)/i);
-      const eventId = eventIdMatch ? eventIdMatch[1] : null;
-      const slug = title.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "");
-      const bccEventPage = eventId
-        ? `https://www.brisbane.qld.gov.au/events/${slug}/${eventId}`
-        : r.web_link || "https://www.brisbane.qld.gov.au/whats-on";
-
-      // Paid events with external booking → go direct to ticketing site
-      // Free events → go to specific BCC event page (correct date, correct show)
-      const eventUrl = (!isFree && externalBookingUrl)
-        ? externalBookingUrl
-        : bccEventPage;
-
-      return {
-        id: `bcc_${Math.random().toString(36).slice(2)}`,
-        title,
-        venue: r.location || "Brisbane",
-        suburb: "Brisbane",
-        address: r.location || "",
-        time,
-        price: isFree ? "Free" : (r.cost || "See website"),
-        isFree,
-        category: detectCategory(catText),
-        tags: (r.event_type || []).map(t => t.toLowerCase()).slice(0, 3),
-        description: (r.description || "").replace(/<[^>]*>/g, "").slice(0, 350),
-        url: eventUrl,
-        image: r.eventimage || null,
-        source: "brisbanecouncil",
-        isLive: true,
-      };
-    });
+    console.log(`BCC ${datasetId}: ${records.length} records`);
+    return records;
   } catch (err) {
-    console.error("BCC fetch error:", err.message);
+    console.error(`BCC ${datasetId} fetch error:`, err.message);
     return [];
   }
 }
 
-// ── FALLBACK (only used when real APIs return < 5 events) ─────────────────────
+// ── MAP BCC RECORD TO EVENT OBJECT ────────────────────────────────────────────
+function mapBCCRecord(r, datasetId) {
+  const title = r.subject || r.event_name || r.title || "Brisbane Event";
+  const startDate = r.start_datetime || r.date_start || "";
+  const timeMatch = (r.formatteddatetime || "").match(/(\d+(?::\d+)?(?:am|pm))/i);
+  const time = timeMatch ? timeMatch[1].toUpperCase() : (startDate ? new Date(startDate).toLocaleTimeString("en-AU", {
+    hour: "numeric", minute: "2-digit", hour12: true, timeZone: "Australia/Brisbane"
+  }) : "");
+  const costStr = (r.cost || "").toString().toLowerCase().trim();
+  const isFree = costStr === "" || costStr === "free" || costStr === "0" || costStr.startsWith("free");
+  const catText = `${title} ${(r.event_type || []).join(" ")} ${r.primaryeventtype || ""} ${r.activitytype || ""} ${r.description || ""}`;
+
+  // Extract external booking URL from bookings HTML
+  const bookingMatch = (r.bookings || "").match(/href="([^"#][^"]+)"/);
+  const externalBookingUrl = bookingMatch ? bookingMatch[1] : null;
+
+  // Build direct BCC event page URL from eventid in web_link
+  const eventIdMatch = (r.web_link || "").match(/eventid(?:%3[Dd]|=)(\d+)/i);
+  const eventId = eventIdMatch ? eventIdMatch[1] : null;
+  const slug = title.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "");
+  const bccEventPage = eventId
+    ? `https://www.brisbane.qld.gov.au/events/${slug}/${eventId}`
+    : "https://www.brisbane.qld.gov.au/whats-on";
+
+  const eventUrl = (!isFree && externalBookingUrl) ? externalBookingUrl : bccEventPage;
+
+  return {
+    id: `bcc_${datasetId}_${eventId || Math.random().toString(36).slice(2)}`,
+    title,
+    venue: r.location || r.venue_name || r.venuename || "Brisbane",
+    suburb: r.suburb || "Brisbane",
+    address: r.location || r.venueaddress || "",
+    time,
+    price: isFree ? "Free" : (r.cost || "See website"),
+    isFree,
+    category: detectCategory(catText),
+    tags: (r.event_type || r.libraryeventtypes || []).map(t => t.toLowerCase()).slice(0, 3),
+    description: (r.description || "").replace(/<[^>]*>/g, "").slice(0, 350),
+    url: eventUrl,
+    image: r.eventimage || null,
+    source: "brisbanecouncil",
+    isLive: true,
+  };
+}
+
+// ── ALL BCC SOURCES ───────────────────────────────────────────────────────────
+async function fetchBrisbaneCityCouncil(date) {
+  // All confirmed working BCC datasets on the same API
+  const DATASETS = [
+    "brisbane-city-council-events",    // Master: creative, parks, libraries, active & healthy, botanic gardens
+    "brisbane-powerhouse-events",      // Brisbane Powerhouse theatre & arts
+    "business-events",                 // Networking, seminars, professional events
+    "classes-and-workshops-events",    // Skills, crafts, workshops
+    "city-hall-events",                // City Hall events
+  ];
+
+  const results = await Promise.allSettled(
+    DATASETS.map(ds => fetchBCCDataset(ds, date))
+  );
+
+  const allRecords = [];
+  results.forEach((r, i) => {
+    if (r.status === "fulfilled") {
+      r.value.forEach(record => {
+        allRecords.push(mapBCCRecord(record, DATASETS[i]));
+      });
+    }
+  });
+
+  // Deduplicate across datasets by event title + time
+  const seen = new Set();
+  return allRecords.filter(e => {
+    const key = (e.title + e.time).toLowerCase().replace(/[^a-z0-9]/g, "").slice(0, 40);
+    if (seen.has(key)) return false;
+    seen.add(key);
+    return true;
+  });
+}
+
+// ── FALLBACK (only when real APIs return < 5 events total) ────────────────────
 function generateFallback(date) {
   const dow = new Date(date + "T12:00:00").getDay();
   const isWknd = dow === 0 || dow === 6;
   const EVENTS = [
-    { cat:"music", venue:"The Triffid", suburb:"Newstead", url:"https://thetriffid.com.au", title:"Live Music — The Triffid", time:"7:30 PM", price:"$15", isFree:false, tags:["live music"] },
-    { cat:"music", venue:"Fortitude Music Hall", suburb:"Fortitude Valley", url:"https://fortitudemusichall.com", title:"Live Concert — Fortitude Music Hall", time:"8:00 PM", price:"$25", isFree:false, tags:["concert"] },
-    { cat:"nightlife", venue:"Cloudland", suburb:"Fortitude Valley", url:"https://cloudland.com.au", title:"Night Out — Cloudland", time:"9:00 PM", price:"$20", isFree:false, tags:["nightclub"] },
-    { cat:"arts", venue:"GOMA", suburb:"South Brisbane", url:"https://qagoma.qld.gov.au", title:"Current Exhibition — GOMA", time:"10:00 AM", price:"Free", isFree:true, tags:["gallery"] },
-    { cat:"comedy", venue:"Sit Down Comedy Club", suburb:"Fortitude Valley", url:"https://sitdowncomedy.com.au", title:"Stand-Up Night", time:"7:30 PM", price:"$25", isFree:false, tags:["comedy"] },
-    { cat:"food", venue:"Jan Powers Farmers Market", suburb:"New Farm", url:"https://janpowersfarmersmarkets.com.au", title:"Farmers Markets", time:"6:00 AM", price:"Free entry", isFree:true, tags:["markets"] },
-    { cat:"outdoors", venue:"South Bank Parklands", suburb:"South Bank", url:"https://visitsouthbank.com.au", title:"Parkrun — South Bank", time:"7:00 AM", price:"Free", isFree:true, tags:["parkrun"] },
-    { cat:"community", venue:"Archive Beer Boutique", suburb:"Fortitude Valley", url:"https://archivebeer.com.au", title:"Trivia Night", time:"7:00 PM", price:"Free", isFree:true, tags:["trivia"] },
-    { cat:"family", venue:"Queensland Museum", suburb:"South Brisbane", url:"https://museum.qld.gov.au", title:"Queensland Museum", time:"9:30 AM", price:"Free", isFree:true, tags:["family","kids"] },
-    { cat:"sports", venue:"Suncorp Stadium", suburb:"Milton", url:"https://premier.ticketek.com.au", title:"Live Sport — Suncorp Stadium", time:"7:00 PM", price:"From $25", isFree:false, tags:["sport"] },
+    { cat:"music", venue:"The Triffid", suburb:"Newstead", url:"https://thetriffid.com.au", title:"Live Music — The Triffid", time:"7:30 PM", price:"See website", isFree:false, tags:["live music"] },
+    { cat:"music", venue:"Fortitude Music Hall", suburb:"Fortitude Valley", url:"https://fortitudemusichall.com", title:"Live Concert — Fortitude Music Hall", time:"8:00 PM", price:"See website", isFree:false, tags:["concert"] },
+    { cat:"nightlife", venue:"Cloudland", suburb:"Fortitude Valley", url:"https://cloudland.com.au", title:"Night Out — Cloudland", time:"9:00 PM", price:"See website", isFree:false, tags:["nightclub"] },
+    { cat:"arts", venue:"GOMA", suburb:"South Brisbane", url:"https://www.qagoma.qld.gov.au/whats-on", title:"Current Exhibition — GOMA", time:"10:00 AM", price:"Free", isFree:true, tags:["gallery"] },
+    { cat:"comedy", venue:"Sit Down Comedy Club", suburb:"Fortitude Valley", url:"https://sitdowncomedy.com.au", title:"Stand-Up Night", time:"7:30 PM", price:"See website", isFree:false, tags:["comedy"] },
+    { cat:"outdoors", venue:"South Bank Parklands", suburb:"South Bank", url:"https://www.brisbane.qld.gov.au/whats-on", title:"Parkrun — South Bank", time:"7:00 AM", price:"Free", isFree:true, tags:["parkrun"] },
+    { cat:"sports", venue:"Suncorp Stadium", suburb:"Milton", url:"https://premier.ticketek.com.au", title:"Live Sport — Suncorp Stadium", time:"7:00 PM", price:"See website", isFree:false, tags:["sport"] },
   ];
   return EVENTS
-    .filter(e => isWknd || !["markets"].includes(e.tags[0]))
+    .filter(() => !isWknd || true)
     .map((e, i) => ({ ...e, id: `fb_${i}`, source: "fallback", isLive: false }));
 }
 
@@ -190,7 +213,7 @@ export default async function handler(req, res) {
       fetchBrisbaneCityCouncil(date),
     ]);
 
-    const tmEvents = tmResult.status === "fulfilled" ? tmResult.value : [];
+    const tmEvents  = tmResult.status  === "fulfilled" ? tmResult.value  : [];
     const bccEvents = bccResult.status === "fulfilled" ? bccResult.value : [];
     const liveEvents = [...tmEvents, ...bccEvents];
 

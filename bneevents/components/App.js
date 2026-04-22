@@ -33,70 +33,135 @@ const VENUES = [
   { id:"v20", cat:"community", name:"River City Labs", suburb:"Fortitude Valley", type:"Tech & Startup Hub", desc:"Queensland's leading tech innovation hub. Workshops, networking events, founder meetups and startup programs.", url:"https://rivercitylabs.acs.org.au/go-virtual.html" },
 ];
 
-// ── ACTIVITIES — bookable experiences + free regular activities ────────────────
-// Structure: subcat → list of activities
-// "free" = show up anytime, "book" = requires booking
+// ── ACTIVITIES — 3-level hierarchy: Subcat → Type → Items ────────────────────
+// free:true = show up anytime | free:false = booking required
 const ACTIVITIES = {
   brisbane: [
     {
+      id: "fitness",
       subcat: "🏃 Fitness",
-      items: [
-        // All 21 Brisbane parkruns — every Saturday 7am, free, no booking
-        { id:"a1",  name:"South Bank Parkrun",          suburb:"South Bank",          type:"Free 5km Run · Every Saturday 7am", free:true,  desc:"Brisbane's biggest parkrun. Run along South Bank Parklands with 460+ runners every week. Register free once at parkrun.com.au — just show up.", url:"https://www.parkrun.com.au/southbank/" },
-        { id:"a2",  name:"New Farm Parkrun",            suburb:"New Farm",            type:"Free 5km Run · Every Saturday 7am", free:true,  desc:"Scenic riverside run through New Farm Park along the Brisbane River toward Teneriffe. 340+ regular runners.", url:"https://www.parkrun.com.au/newfarm/" },
-        { id:"a3",  name:"Rocks Riverside Parkrun",     suburb:"Seventeen Mile Rocks",type:"Free 5km Run · Every Saturday 7am", free:true,  desc:"One of Brisbane's most popular parkruns with 360+ finishers weekly. Beautiful riverside park setting.", url:"https://www.parkrun.com.au/rocksriverside/" },
-        { id:"a4",  name:"Sandgate Parkrun",            suburb:"Sandgate",            type:"Free 5km Run · Every Saturday 7am", free:true,  desc:"Coastal parkrun along Sandgate foreshore with bay views. 345+ runners every week.", url:"https://www.parkrun.com.au/sandgate/" },
-        { id:"a5",  name:"Mitchelton Parkrun",          suburb:"Everton Park",        type:"Free 5km Run · Every Saturday 7am", free:true,  desc:"300+ runners every Saturday through Mitchelton's parks and green spaces.", url:"https://www.parkrun.com.au/mitchelton/" },
-        { id:"a6",  name:"Kelvin Grove Parkrun",        suburb:"Kelvin Grove",        type:"Free 5km Run · Every Saturday 7am", free:true,  desc:"Inner-city parkrun through Bishop Street Park. Easy access from the CBD and inner north.", url:"https://www.parkrun.com.au/kelvingrove/" },
-        { id:"a7",  name:"Ashgrove Parkrun",            suburb:"Ashgrove",            type:"Free 5km Run · Every Saturday 7am", free:true,  desc:"Hilly and rewarding course through Ashgrove parklands. Great community atmosphere post-run at local cafes.", url:"https://www.parkrun.com.au/ashgrove/" },
-        { id:"a8",  name:"Kedron Parkrun",              suburb:"Kedron",              type:"Free 5km Run · Every Saturday 7am", free:true,  desc:"Flat and fast course at Kedron Park, ideal for PB chasers. 200+ regulars.", url:"https://www.parkrun.com.au/kedron/" },
-        { id:"a9",  name:"Stones Corner Parkrun",       suburb:"Greenslopes",         type:"Free 5km Run · Every Saturday 7am", free:true,  desc:"Beautiful course along the creek and parks of Stones Corner. One of Brisbane's most scenic routes.", url:"https://www.parkrun.com.au/stonescorner/" },
-        { id:"a10", name:"St Lucia Parkrun",            suburb:"St Lucia",            type:"Free 5km Run · Every Saturday 7am", free:true,  desc:"Run along the Brisbane River at UQ campus. Flat, shaded and stunning river views.", url:"https://www.parkrun.com.au/stlucia/" },
-        { id:"a11", name:"Minnippi Parkrun",            suburb:"Carindale",           type:"Free 5km Run · Every Saturday 7am", free:true,  desc:"Loop around the ancient Minnippi lagoon — Brisbane's most unique parkrun setting. Like running through a secret garden.", url:"https://www.parkrun.com.au/minnippi/" },
-        { id:"a12", name:"Wynnum Parkrun",              suburb:"Wynnum",              type:"Free 5km Run · Every Saturday 7am", free:true,  desc:"Bayside parkrun along the Wynnum foreshore with water views across Moreton Bay.", url:"https://www.parkrun.com.au/wynnum/" },
-        { id:"a13", name:"Chermside Parkrun",           suburb:"Chermside",           type:"Free 5km Run · Every Saturday 7am", free:true,  desc:"Popular northside parkrun through Chermside's parks. Great community with 200+ runners weekly.", url:"https://www.parkrun.com.au/chermside/" },
-        { id:"a14", name:"Mansfield Parkrun",           suburb:"Mansfield",           type:"Free 5km Run · Every Saturday 7am", free:true,  desc:"Southside parkrun through Mansfield's green corridors. Friendly local community.", url:"https://www.parkrun.com.au/mansfield/" },
-        { id:"a15", name:"Forest Lake Parkrun",         suburb:"Forest Lake",         type:"Free 5km Run · Every Saturday 7am", free:true,  desc:"Lakeside parkrun loop through Forest Lake's beautiful waterfront parklands.", url:"https://www.parkrun.com.au/forrestlake/" },
-        { id:"a16", name:"Calamvale Parkrun",           suburb:"Calamvale",           type:"Free 5km Run · Every Saturday 7am", free:true,  desc:"Southside parkrun in Calamvale District Park. Flat and accessible for all abilities.", url:"https://www.parkrun.com.au/calamvale/" },
-        { id:"a17", name:"Wishart Parkrun",             suburb:"Wishart",             type:"Free 5km Run · Every Saturday 7am", free:true,  desc:"Quiet southside parkrun through Wishart's parks. Small and welcoming community.", url:"https://www.parkrun.com.au/wishart/" },
-        { id:"a18", name:"Lota Parkrun",                suburb:"Lota",                type:"Free 5km Run · Every Saturday 7am", free:true,  desc:"Bayside parkrun near Lota Creek. One of Brisbane's smaller, friendlier events.", url:"https://www.parkrun.com.au/lota/" },
-        { id:"a19", name:"Pallara Parkrun",             suburb:"Pallara",             type:"Free 5km Run · Every Saturday 7am", free:true,  desc:"Brisbane's most intimate parkrun with around 47 runners. A tight-knit community in the south.", url:"https://www.parkrun.com.au/pallara/" },
-        { id:"a20", name:"Zillmere Parkrun",            suburb:"Zillmere",            type:"Free 5km Run · Every Saturday 7am", free:true,  desc:"Northside parkrun at O'Callaghan Park. Small friendly event, ideal for beginners.", url:"https://www.parkrun.com.au/zillmere/" },
-        { id:"a21", name:"Samford Parklands Parkrun",   suburb:"Samford",             type:"Free 5km Run · Every Saturday 7am", free:true,  desc:"Brisbane's newest parkrun (2024) set in the stunning Samford Parklands. Beautiful semi-rural setting.", url:"https://www.parkrun.com.au/samfordparklands/" },
+      types: [
+        {
+          id: "run",
+          type: "🏃 Run",
+          items: [
+            { id:"a1",  name:"South Bank Parkrun",        suburb:"South Bank",           free:true,  detail:"Every Saturday 7am · Free", desc:"Brisbane's biggest parkrun. 460+ runners along South Bank Parklands. Register free once at parkrun.com.au — just show up.", url:"https://www.parkrun.com.au/southbank/" },
+            { id:"a2",  name:"New Farm Parkrun",          suburb:"New Farm",             free:true,  detail:"Every Saturday 7am · Free", desc:"Scenic riverside run through New Farm Park along the Brisbane River. 340+ regulars.", url:"https://www.parkrun.com.au/newfarm/" },
+            { id:"a3",  name:"Rocks Riverside Parkrun",   suburb:"Seventeen Mile Rocks", free:true,  detail:"Every Saturday 7am · Free", desc:"360+ finishers weekly. Beautiful riverside park setting, one of Brisbane's most popular.", url:"https://www.parkrun.com.au/rocksriverside/" },
+            { id:"a4",  name:"Sandgate Parkrun",          suburb:"Sandgate",             free:true,  detail:"Every Saturday 7am · Free", desc:"Coastal run along the Sandgate foreshore with Moreton Bay views. 345+ runners.", url:"https://www.parkrun.com.au/sandgate/" },
+            { id:"a5",  name:"Mitchelton Parkrun",        suburb:"Everton Park",         free:true,  detail:"Every Saturday 7am · Free", desc:"300+ runners every Saturday through Mitchelton's green parklands.", url:"https://www.parkrun.com.au/mitchelton/" },
+            { id:"a6",  name:"Kelvin Grove Parkrun",      suburb:"Kelvin Grove",         free:true,  detail:"Every Saturday 7am · Free", desc:"Inner-city parkrun at Bishop Street Park. Easy access from CBD.", url:"https://www.parkrun.com.au/kelvingrove/" },
+            { id:"a7",  name:"Ashgrove Parkrun",          suburb:"Ashgrove",             free:true,  detail:"Every Saturday 7am · Free", desc:"Hilly and rewarding course through Ashgrove parklands. Great café community post-run.", url:"https://www.parkrun.com.au/ashgrove/" },
+            { id:"a8",  name:"Kedron Parkrun",            suburb:"Kedron",               free:true,  detail:"Every Saturday 7am · Free", desc:"Flat and fast at Kedron Park. Ideal for PB chasers. 200+ regulars.", url:"https://www.parkrun.com.au/kedron/" },
+            { id:"a9",  name:"Stones Corner Parkrun",     suburb:"Greenslopes",          free:true,  detail:"Every Saturday 7am · Free", desc:"Beautiful course along the creek and parks of Stones Corner. One of Brisbane's most scenic.", url:"https://www.parkrun.com.au/stonescorner/" },
+            { id:"a10", name:"St Lucia Parkrun",          suburb:"St Lucia",             free:true,  detail:"Every Saturday 7am · Free", desc:"Flat and shaded riverside run at UQ campus with stunning Brisbane River views.", url:"https://www.parkrun.com.au/stlucia/" },
+            { id:"a11", name:"Minnippi Parkrun",          suburb:"Carindale",            free:true,  detail:"Every Saturday 7am · Free", desc:"Loop around the ancient Minnippi lagoon. Brisbane's most unique parkrun setting — like a secret garden.", url:"https://www.parkrun.com.au/minnippi/" },
+            { id:"a12", name:"Wynnum Parkrun",            suburb:"Wynnum",               free:true,  detail:"Every Saturday 7am · Free", desc:"Bayside run along the Wynnum foreshore with Moreton Bay views.", url:"https://www.parkrun.com.au/wynnum/" },
+            { id:"a13", name:"Chermside Parkrun",         suburb:"Chermside",            free:true,  detail:"Every Saturday 7am · Free", desc:"Popular northside parkrun. 200+ runners every week through Chermside parks.", url:"https://www.parkrun.com.au/chermside/" },
+            { id:"a14", name:"Mansfield Parkrun",         suburb:"Mansfield",            free:true,  detail:"Every Saturday 7am · Free", desc:"Southside parkrun at Tillack Park. Friendly community, all paces welcome.", url:"https://www.parkrun.com.au/mansfieldqld/" },
+            { id:"a15", name:"Forest Lake Parkrun",       suburb:"Forest Lake",          free:true,  detail:"Every Saturday 7am · Free", desc:"Lakeside loop through Forest Lake's waterfront parklands.", url:"https://www.parkrun.com.au/forestlake/" },
+            { id:"a16", name:"Calamvale Parkrun",         suburb:"Calamvale",            free:true,  detail:"Every Saturday 7am · Free", desc:"Flat and accessible parkrun at Calamvale District Park. Great for beginners.", url:"https://www.parkrun.com.au/calamvale/" },
+            { id:"a17", name:"Wishart Parkrun",           suburb:"Wishart",              free:true,  detail:"Every Saturday 7am · Free", desc:"Quiet southside parkrun through Wishart's parks. Small, welcoming community.", url:"https://www.parkrun.com.au/wishart/" },
+            { id:"a18", name:"Lota Parkrun",              suburb:"Lota",                 free:true,  detail:"Every Saturday 7am · Free", desc:"Bayside parkrun near Lota Creek. One of Brisbane's smaller, friendlier events.", url:"https://www.parkrun.com.au/lota/" },
+            { id:"a19", name:"Pallara Parkrun",           suburb:"Pallara",              free:true,  detail:"Every Saturday 7am · Free", desc:"Brisbane's most intimate parkrun — ~47 runners. Tight-knit community in the south.", url:"https://www.parkrun.com.au/pallara/" },
+            { id:"a20", name:"Zillmere Parkrun",          suburb:"Zillmere",             free:true,  detail:"Every Saturday 7am · Free", desc:"Northside parkrun at O'Callaghan Park. Small and friendly, great for first-timers.", url:"https://www.parkrun.com.au/zillmere/" },
+            { id:"a21", name:"Samford Parklands Parkrun", suburb:"Samford",              free:true,  detail:"Every Saturday 7am · Free", desc:"Brisbane's newest parkrun (2024) in stunning semi-rural Samford Parklands.", url:"https://www.parkrun.com.au/samfordparklands/" },
+          ]
+        },
+        {
+          id: "yoga",
+          type: "🧘 Yoga & Pilates",
+          items: [
+            { id:"a30", name:"BCC Free Yoga & Pilates Classes", suburb:"Various Brisbane Parks", free:true,  detail:"Various times · Free", desc:"Brisbane City Council runs free yoga, Pilates, aqua yoga and movement classes across 50+ parks and pools. All levels welcome. Check the full schedule for a class near you.", url:"https://www.brisbane.qld.gov.au/parks-and-recreation/sports-and-leisure/active-and-healthy-activities#yoga" },
+          ]
+        },
+        {
+          id: "groupfitness",
+          type: "💪 Group Fitness",
+          items: [
+            { id:"a31", name:"BCC Free Fitness Classes", suburb:"Various Brisbane Parks", free:true,  detail:"Various times · Free", desc:"Free outdoor boxing, HIIT, Zumba, aqua aerobics and functional fitness classes across Brisbane parks and pools. No gym membership needed. All ages and abilities.", url:"https://www.brisbane.qld.gov.au/parks-and-recreation/sports-and-leisure/active-and-healthy-activities" },
+          ]
+        },
       ]
     },
     {
+      id: "adventure",
       subcat: "🌊 Adventure",
-      items: [
-        { id:"a30", name:"Riverlife Kayaking",          suburb:"Kangaroo Point",      type:"Guided Tour · Book Required",       free:false, desc:"Paddle the Brisbane River by day or twilight. The Friday night kayak includes Mexican food and margaritas on return. All equipment provided.", url:"https://riverlife.com.au/tours/" },
-        { id:"a31", name:"Riverlife Rock Climbing",     suburb:"Kangaroo Point",      type:"Guided Tour · Book Required",       free:false, desc:"Climb the 25m Kangaroo Point Cliffs with all safety gear provided. Day, twilight and night sessions available.", url:"https://riverlife.com.au/tours/" },
-        { id:"a32", name:"Riverlife Abseiling",         suburb:"Kangaroo Point",      type:"Guided Tour · Book Required",       free:false, desc:"Abseil down the iconic Kangaroo Point Cliffs with sunset views over the Brisbane River. All gear provided.", url:"https://riverlife.com.au/tours/" },
-        { id:"a33", name:"Riverlife Bike Hire",         suburb:"Kangaroo Point",      type:"Self-Guided · Book Required",       free:false, desc:"Hire a road bike, e-bike or tandem and explore Brisbane's riverside paths at your own pace. Helmets included.", url:"https://riverlife.com.au/tours/" },
-        { id:"a34", name:"Story Bridge Adventure Climb",suburb:"Brisbane City",       type:"Guided Climb · Book Required",      free:false, desc:"Scale Brisbane's most iconic structure for 360° views — Glass House Mountains to Moreton Bay. Day, twilight and night climbs. ~1.5 hours.", url:"https://storybridgeadventureclimb.com.au/activities/events/" },
+      types: [
+        {
+          id: "climbing",
+          type: "🧗 Climbing & Abseiling",
+          items: [
+            { id:"a40", name:"Riverlife Rock Climbing",   suburb:"Kangaroo Point", free:false, detail:"Day & night sessions · Book required", desc:"Climb the iconic 25m Kangaroo Point Cliffs with all safety gear provided. Day, twilight and night sessions. No experience needed.", url:"https://riverlife.com.au/tours/" },
+            { id:"a41", name:"Riverlife Abseiling",       suburb:"Kangaroo Point", free:false, detail:"Twilight sessions · Book required",    desc:"Abseil down the Kangaroo Point Cliffs with sunset views over the Brisbane River. All gear provided. Suitable for beginners.", url:"https://riverlife.com.au/tours/" },
+            { id:"a42", name:"Story Bridge Adventure Climb", suburb:"Brisbane City", free:false, detail:"Day, twilight & night · Book required", desc:"Scale Brisbane's most iconic bridge for 360° views — Glass House Mountains to Moreton Bay. ~1.5 hours. Harness and suit provided.", url:"https://storybridgeadventureclimb.com.au/activities/events/" },
+          ]
+        },
+        {
+          id: "water",
+          type: "🚣 Water",
+          items: [
+            { id:"a50", name:"Riverlife Kayaking",        suburb:"Kangaroo Point", free:false, detail:"Day & twilight tours · Book required", desc:"Paddle the Brisbane River by day or twilight. The Friday night kayak includes Mexican food and margaritas on return. All equipment provided.", url:"https://riverlife.com.au/tours/" },
+          ]
+        },
+        {
+          id: "cycling",
+          type: "🚵 Cycling",
+          items: [
+            { id:"a60", name:"Riverlife Bike Hire",       suburb:"Kangaroo Point", free:false, detail:"Hourly & daily hire · Book required",  desc:"Hire a road bike, e-bike or tandem and explore Brisbane's riverside paths. Helmets included. City Nights Picnic Ride also available for couples.", url:"https://riverlife.com.au/tours/" },
+          ]
+        },
       ]
     },
     {
+      id: "experiences",
       subcat: "🍺 Experiences",
-      items: [
-        { id:"a40", name:"XXXX Brewery Tour",           suburb:"Milton",              type:"Guided Tour · Book Required",       free:false, desc:"90-minute insider tour of Queensland's iconic XXXX Brewery. See the brewing process, taste 4 fresh beers, learn to pour the perfect pint. Heritage-listed site.", url:"https://www.xxxx.com.au/brewery-tours" },
+      types: [
+        {
+          id: "brewery",
+          type: "🍺 Food & Drink Tours",
+          items: [
+            { id:"a70", name:"XXXX Brewery Tour",         suburb:"Milton",         free:false, detail:"90 min tour · Book required",         desc:"Insider tour of Queensland's iconic XXXX Brewery. See the brewing process up close, taste 4 fresh beers and learn the perfect pour. 135 years of heritage.", url:"https://www.xxxx.com.au/brewery-tours" },
+          ]
+        },
       ]
     },
   ],
   aroundBrisbane: [
     {
+      id: "daytrips",
       subcat: "🏖️ Day Trips",
-      items: [
-        { id:"b1",  name:"Moreton Island Day Trip",     suburb:"Moreton Bay",         type:"Ferry Day Trip · Book Required",    free:false, desc:"Snorkel the Tangalooma wrecks, sandboard the desert and spot dolphins feeding at sunset. 75 min ferry from Brisbane.", url:"https://www.tangalooma.com/day-cruise" },
-        { id:"b2",  name:"Australia Zoo",               suburb:"Beerwah (1hr north)", type:"Wildlife Park · Book Recommended",  free:false, desc:"Steve Irwin's famous wildlife park. Crocs, koalas, tigers and 1,200+ animals. Daily wildlife shows. 1 hour north of Brisbane.", url:"https://www.australiazoo.com.au" },
-        { id:"b3",  name:"Lone Pine Koala Sanctuary",   suburb:"Fig Tree Pocket",     type:"Wildlife Park · Book Recommended",  free:false, desc:"World's first and largest koala sanctuary. Hold a koala, hand-feed kangaroos, 70+ species of Australian wildlife. 20 min from CBD.", url:"https://lonepinekoalasanctuary.com" },
-        { id:"b4",  name:"North Stradbroke Island",     suburb:"Moreton Bay",         type:"Island Day Trip · Ferry Required",  free:false, desc:"Pristine beaches, whale watching (June–Nov), snorkelling and 4WD adventures. 30 min ferry from Cleveland.", url:"https://www.stradbrokeisland.com" },
+      types: [
+        {
+          id: "islands",
+          type: "🏝️ Islands",
+          items: [
+            { id:"b1", name:"Moreton Island Day Trip",    suburb:"Moreton Bay (75min ferry)", free:false, detail:"Full day · Ferry required", desc:"Snorkel the Tangalooma wrecks, sandboard the desert and spot wild dolphins feeding at sunset. One of Queensland's most beautiful islands.", url:"https://www.tangalooma.com/day-cruise" },
+            { id:"b2", name:"North Stradbroke Island",    suburb:"Moreton Bay (30min ferry)", free:false, detail:"Full day · Ferry from Cleveland", desc:"Pristine beaches, whale watching (June–Nov), snorkelling and 4WD adventures. 30 min ferry from Cleveland.", url:"https://www.stradbrokeisland.com" },
+          ]
+        },
+        {
+          id: "wildlife",
+          type: "🐨 Wildlife",
+          items: [
+            { id:"b3", name:"Australia Zoo",              suburb:"Beerwah (1hr north)",       free:false, detail:"Full day · Book recommended",  desc:"Steve Irwin's world-famous wildlife park. Crocs, koalas, tigers and 1,200+ animals. Daily wildlife shows. 1 hour north of Brisbane.", url:"https://www.australiazoo.com.au" },
+            { id:"b4", name:"Lone Pine Koala Sanctuary",  suburb:"Fig Tree Pocket (20min)",   free:false, detail:"Half or full day · Book recommended", desc:"World's first and largest koala sanctuary. Hold a koala, hand-feed kangaroos and meet 70+ species of Australian wildlife.", url:"https://lonepinekoalasanctuary.com" },
+          ]
+        },
       ]
     },
     {
+      id: "nature",
       subcat: "🌿 Nature",
-      items: [
-        { id:"b10", name:"Mt Coot-tha Summit",          suburb:"Toowong",             type:"Free · Drive or Walk",              free:true,  desc:"Best panoramic views of Brisbane from 287m. Free lookout, planetarium, botanical gardens and café. 10 min from CBD.", url:"https://www.brisbane.qld.gov.au/things-to-see-and-do/council-venues-and-precincts/mt-coot-tha-precinct" },
-        { id:"b11", name:"Bunyaville Conservation Park",suburb:"Bunya",               type:"Free · Hiking",                     free:true,  desc:"80+ hectares of native bushland with walking trails through eucalyptus forest. Free entry. Dog friendly on leash.", url:"https://parks.des.qld.gov.au/parks/bunyaville-conservation-park" },
+      types: [
+        {
+          id: "walks",
+          type: "🥾 Walks & Lookouts",
+          items: [
+            { id:"b10", name:"Mt Coot-tha Summit",        suburb:"Toowong (10min)",     free:true,  detail:"Free · Open daily",  desc:"Brisbane's best panoramic views from 287m. Free lookout, planetarium, botanical gardens and café. 10 min from the CBD — sunrise is spectacular.", url:"https://www.brisbane.qld.gov.au/things-to-see-and-do/council-venues-and-precincts/mt-coot-tha-precinct" },
+            { id:"b11", name:"Bunyaville Conservation Park", suburb:"Bunya (20min)",    free:true,  detail:"Free · Open daily",  desc:"80+ hectares of native bushland with walking trails through eucalyptus forest. Free entry. Dog friendly on leash.", url:"https://parks.des.qld.gov.au/parks/bunyaville-conservation-park" },
+          ]
+        },
       ]
     },
   ]
@@ -111,7 +176,33 @@ export default function App() {
   const [events, setEvents] = useState([]);
   const [filter, setFilter] = useState("all");
   const [view, setView] = useState("events"); // "events" | "venues" | "activities"
-  const [actLocation, setActLocation] = useState("brisbane"); // "brisbane" | "aroundBrisbane"
+  const [actLocation, setActLocation] = useState("brisbane");
+  // openSubcats: Set of subcat ids that are open — persisted in localStorage
+  // openTypes: Set of "subcatId/typeId" strings that are open
+  const [openSubcats, setOpenSubcats] = useState(() => {
+    try { return new Set(JSON.parse(localStorage.getItem("bne_open_subcats")||"[]")); } catch { return new Set(); }
+  });
+  const [openTypes, setOpenTypes] = useState(() => {
+    try { return new Set(JSON.parse(localStorage.getItem("bne_open_types")||"[]")); } catch { return new Set(); }
+  });
+
+  function toggleSubcat(id) {
+    setOpenSubcats(prev => {
+      const next = new Set(prev);
+      next.has(id) ? next.delete(id) : next.add(id);
+      try { localStorage.setItem("bne_open_subcats", JSON.stringify([...next])); } catch {}
+      return next;
+    });
+  }
+  function toggleType(subcatId, typeId) {
+    const key = `${subcatId}/${typeId}`;
+    setOpenTypes(prev => {
+      const next = new Set(prev);
+      next.has(key) ? next.delete(key) : next.add(key);
+      try { localStorage.setItem("bne_open_types", JSON.stringify([...next])); } catch {}
+      return next;
+    });
+  }
   const [appStatus, setAppStatus] = useState("idle");
   const [meta, setMeta] = useState(null);
   const [expandedId, setExpandedId] = useState(null);
@@ -322,31 +413,56 @@ export default function App() {
         {/* ── ACTIVITIES VIEW ── */}
         {view==="activities"&&(
           <div className="events-list">
-            {/* Location toggle */}
             <div className="act-location-toggle">
               <button className={`act-loc-btn${actLocation==="brisbane"?" active":""}`} onClick={()=>setActLocation("brisbane")}>📍 Brisbane</button>
               <button className={`act-loc-btn${actLocation==="aroundBrisbane"?" active":""}`} onClick={()=>setActLocation("aroundBrisbane")}>🗺️ Around Brisbane</button>
             </div>
-            {ACTIVITIES[actLocation].map(group=>(
-              <div key={group.subcat}>
-                <div className="section-header"><span>{group.subcat}</span><div className="divider"/></div>
-                {group.items.map((a,i)=>(
-                  <div key={a.id} className="activity-card" style={{animationDelay:`${i*30}ms`}}>
-                    <div className="act-top">
-                      <div>
-                        <div className="act-name">{a.name}</div>
-                        <div className="act-meta">{a.type} · {a.suburb}</div>
+
+            {ACTIVITIES[actLocation].map(subcat=>{
+              const isSubOpen = openSubcats.has(subcat.id);
+              return (
+                <div key={subcat.id} className="act-subcat">
+                  {/* Level 1 — Subcat header (Fitness / Adventure / Experiences) */}
+                  <button className="act-subcat-header" onClick={()=>toggleSubcat(subcat.id)}>
+                    <span className="act-subcat-label">{subcat.subcat}</span>
+                    <span className="act-chevron">{isSubOpen?"▼":"▶"}</span>
+                  </button>
+
+                  {isSubOpen&&subcat.types.map(typeGroup=>{
+                    const typeKey = `${subcat.id}/${typeGroup.id}`;
+                    const isTypeOpen = openTypes.has(typeKey);
+                    return (
+                      <div key={typeGroup.id} className="act-type">
+                        {/* Level 2 — Type header (Run / Yoga / Climbing etc) */}
+                        <button className="act-type-header" onClick={()=>toggleType(subcat.id, typeGroup.id)}>
+                          <span className="act-type-label">{typeGroup.type}</span>
+                          <span className="act-type-count">{typeGroup.items.length}</span>
+                          <span className="act-chevron-sm">{isTypeOpen?"▼":"▶"}</span>
+                        </button>
+
+                        {isTypeOpen&&typeGroup.items.map((a,i)=>(
+                          /* Level 3 — Individual activity card */
+                          <div key={a.id} className="activity-card" style={{animationDelay:`${i*30}ms`}}>
+                            <div className="act-top">
+                              <div style={{flex:1}}>
+                                <div className="act-name">{a.name}</div>
+                                <div className="act-meta">{a.detail} · {a.suburb}</div>
+                              </div>
+                              <span className={`act-badge ${a.free?"act-free":"act-paid"}`}>{a.free?"Free":"Book"}</span>
+                            </div>
+                            <div className="act-desc">{a.desc}</div>
+                            <a href={a.url} target="_blank" rel="noopener noreferrer"
+                              className={`btn-act ${a.free?"btn-act-free":"btn-act-book"}`}>
+                              {a.free?"More Info →":"Book Now →"}
+                            </a>
+                          </div>
+                        ))}
                       </div>
-                      <span className={`act-badge ${a.free?"act-free":"act-paid"}`}>{a.free?"Free":"Book"}</span>
-                    </div>
-                    <div className="act-desc">{a.desc}</div>
-                    <a href={a.url} target="_blank" rel="noopener noreferrer" className={`btn-act ${a.free?"btn-act-free":"btn-act-book"}`}>
-                      {a.free?"More Info →":"Book Now →"}
-                    </a>
-                  </div>
-                ))}
-              </div>
-            ))}
+                    );
+                  })}
+                </div>
+              );
+            })}
           </div>
         )}
 
@@ -477,19 +593,34 @@ export default function App() {
         .venue-desc{font-size:0.82rem;color:#aaa;line-height:1.6;margin-bottom:12px}
         .btn-venue{display:block;background:#FF9F1C;color:#0A0A0A;border:none;border-radius:8px;padding:10px 14px;font-weight:700;font-size:0.82rem;text-decoration:none;text-align:center;font-family:inherit;cursor:pointer}
 
-        /* ACTIVITY CARDS */
-        .act-location-toggle{display:flex;gap:8px;margin-bottom:12px}
+        /* ACTIVITY 3-LEVEL HIERARCHY */
+        .act-location-toggle{display:flex;gap:8px;margin-bottom:14px}
         .act-loc-btn{flex:1;background:#181818;color:#777;border:1px solid #252525;border-radius:8px;padding:8px;font-family:inherit;font-size:0.8rem;font-weight:500;cursor:pointer;transition:all 0.15s}
         .act-loc-btn.active{background:#FF9F1C;color:#0A0A0A;border-color:#FF9F1C;font-weight:700}
-        .activity-card{background:#181818;border:1px solid #252525;border-radius:14px;padding:14px;margin-bottom:9px;animation:fadeUp 0.3s ease both}
-        .act-top{display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:8px;gap:10px}
-        .act-name{font-size:0.92rem;font-weight:700;color:#E8E8E8;margin-bottom:3px}
-        .act-meta{font-size:0.7rem;color:#777}
-        .act-badge{flex-shrink:0;font-size:0.65rem;font-weight:700;padding:3px 8px;border-radius:6px;text-transform:uppercase}
+
+        /* Level 1 — Subcat (Fitness / Adventure / Experiences) */
+        .act-subcat{margin-bottom:8px;border-radius:12px;overflow:hidden;border:1px solid #252525}
+        .act-subcat-header{width:100%;display:flex;justify-content:space-between;align-items:center;background:#1E1E1E;border:none;color:#E8E8E8;padding:14px 16px;cursor:pointer;font-family:inherit;text-align:left}
+        .act-subcat-label{font-size:1rem;font-weight:700;letter-spacing:0.3px}
+        .act-chevron{font-size:0.7rem;color:#FF9F1C}
+
+        /* Level 2 — Type (Run / Yoga / Climbing) */
+        .act-type{border-top:1px solid #252525}
+        .act-type-header{width:100%;display:flex;align-items:center;gap:8px;background:#181818;border:none;color:#aaa;padding:10px 16px 10px 24px;cursor:pointer;font-family:inherit;text-align:left}
+        .act-type-label{font-size:0.85rem;font-weight:600;flex:1;color:#E8E8E8}
+        .act-type-count{font-size:0.65rem;background:#252525;color:#777;padding:2px 7px;border-radius:10px}
+        .act-chevron-sm{font-size:0.6rem;color:#777}
+
+        /* Level 3 — Individual activity card */
+        .activity-card{background:#141414;padding:14px 16px 14px 24px;border-top:1px solid #1E1E1E;animation:fadeUp 0.25s ease both}
+        .act-top{display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:6px;gap:10px}
+        .act-name{font-size:0.88rem;font-weight:600;color:#E8E8E8;margin-bottom:2px}
+        .act-meta{font-size:0.68rem;color:#777}
+        .act-badge{flex-shrink:0;font-size:0.62rem;font-weight:700;padding:3px 7px;border-radius:5px;text-transform:uppercase}
         .act-free{background:rgba(46,204,113,0.15);color:#2ECC71}
         .act-paid{background:rgba(245,230,66,0.1);color:#F5E642}
-        .act-desc{font-size:0.8rem;color:#aaa;line-height:1.6;margin-bottom:12px}
-        .btn-act{display:block;border:none;border-radius:8px;padding:10px 14px;font-weight:700;font-size:0.82rem;text-decoration:none;text-align:center;font-family:inherit;cursor:pointer}
+        .act-desc{font-size:0.78rem;color:#888;line-height:1.55;margin-bottom:10px}
+        .btn-act{display:block;border:none;border-radius:7px;padding:9px 14px;font-weight:700;font-size:0.78rem;text-decoration:none;text-align:center;font-family:inherit;cursor:pointer}
         .btn-act-free{background:#2ECC71;color:#0A0A0A}
         .btn-act-book{background:#F5E642;color:#0A0A0A}
 

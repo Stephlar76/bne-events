@@ -101,9 +101,7 @@ export default function App() {
               <span className="stats-date">{getFmt(date)}</span>
             </div>
             <div className="stats-sources">
-              {meta.sources.eventbrite>0&&<span className="pill eb">🟡 {meta.sources.eventbrite} Eventbrite</span>}
               {meta.sources.ticketmaster>0&&<span className="pill tm">🔵 {meta.sources.ticketmaster} Ticketmaster</span>}
-              {meta.sources.humanitix>0&&<span className="pill hx">🟢 {meta.sources.humanitix} Humanitix</span>}
               {meta.sources.brisbanecouncil>0&&<span className="pill bcc">🟠 {meta.sources.brisbanecouncil} BCC Events</span>}
               {meta.sources.fallback>0&&<span className="pill fb">⚫ {meta.sources.fallback} local guide</span>}
             </div>

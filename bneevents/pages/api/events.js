@@ -51,15 +51,17 @@ async function fetchTicketmaster(date) {
       const priceRange = e.priceRanges?.[0];
       const price = priceRange ? `$${Math.round(priceRange.min)}–$${Math.round(priceRange.max)}` : "Ticketed";
       const catText = `${e.name} ${e.classifications?.[0]?.segment?.name || ""} ${e.classifications?.[0]?.genre?.name || ""}`;
+      const timeStr = e.dates?.start?.localTime ? new Date(`2000-01-01T${e.dates.start.localTime}`).toLocaleTimeString("en-AU", { hour: "numeric", minute: "2-digit", hour12: true }) : "";
       return {
         id: `tm_${e.id}`,
         title: e.name,
         venue: venue?.name || "Brisbane",
         suburb: venue?.city?.name || "Brisbane",
         address: venue ? `${venue.address?.line1 || ""}, ${venue.city?.name || ""}` : "",
-        time: e.dates?.start?.localTime ? new Date(`2000-01-01T${e.dates.start.localTime}`).toLocaleTimeString("en-AU", { hour: "numeric", minute: "2-digit", hour12: true }) : "",
+        time: timeStr,
         price,
         isFree: false,
+        isEvening: isEveningTime(timeStr),
         category: detectCategory(catText),
         tags: [e.classifications?.[0]?.segment?.name, e.classifications?.[0]?.genre?.name].filter(Boolean).map(t => t.toLowerCase()),
         description: e.info || e.pleaseNote || "",
@@ -95,6 +97,15 @@ async function fetchBCCDataset(datasetId, date) {
 }
 
 // ── MAP BCC RECORD TO EVENT OBJECT ────────────────────────────────────────────
+// Returns true if a time string represents 6pm or later
+function isEveningTime(timeStr) {
+  if (!timeStr) return false;
+  const t = timeStr.toLowerCase().trim();
+  if (!t.includes("pm")) return false;
+  const hour = parseInt(t);
+  if (isNaN(hour)) return false;
+  return hour >= 6 && hour <= 11; // 6pm–11pm only
+}
 function parseBCCTime(r) {
   // formatteddatetime looks like "Thursday, 23 April 2026, 10am - 2:30pm"
   // or "Saturday, 25 April 2026, 7:30pm"
@@ -119,15 +130,8 @@ function mapBCCRecord(r, datasetId) {
   const isFree = costStr === "" || costStr === "free" || costStr === "0" || costStr.startsWith("free");
   const catText = `${title} ${(r.event_type || []).join(" ")} ${r.primaryeventtype || ""} ${r.activitytype || ""} ${r.description || ""}`;
 
-  // Detect if event is evening (5pm+) — used to show under nightlife filter too
-  const isEvening = (() => {
-    const t = time.toLowerCase();
-    if (t.includes("pm")) {
-      const hour = parseInt(t);
-      return hour >= 5 && hour !== 12;
-    }
-    return false;
-  })();
+  // Detect if event is evening (6pm+) — used to show under nightlife filter too
+  const isEvening = isEveningTime(time);
 
   // Extract external booking URL from bookings HTML
   const bookingMatch = (r.bookings || "").match(/href="([^"#][^"]+)"/);

@@ -166,6 +166,78 @@ async function fetchTicketmaster(date) {
   }
 }
 
+// ── HUMANITIX ─────────────────────────────────────────────────────────────────
+async function fetchHumanitix(date) {
+  const key = process.env.HUMANITIX_KEY;
+  if (!key) return [];
+
+  try {
+    const startOfDay = new Date(date + "T00:00:00+10:00").toISOString();
+    const endOfDay   = new Date(date + "T23:59:59+10:00").toISOString();
+
+    // Fetch events filtered by date and Brisbane location
+    const params = new URLSearchParams({
+      startDate: startOfDay,
+      endDate: endOfDay,
+      timezone: "Australia/Brisbane",
+      pageSize: "50",
+      page: "1",
+    });
+
+    const res = await fetch(`https://api.humanitix.com/v1/events?${params}`, {
+      headers: {
+        "x-api-key": key,
+        "Content-Type": "application/json",
+      },
+      next: { revalidate: 300 },
+    });
+
+    if (!res.ok) {
+      console.error("Humanitix error:", res.status, await res.text());
+      return [];
+    }
+
+    const data = await res.json();
+    const items = data.events || data.data || [];
+
+    return items
+      .filter(e => {
+        const loc = `${e.location?.city || ""} ${e.location?.state || ""} ${e.location?.suburb || ""}`;
+        return isBrisbane(loc) || e.location?.state === "QLD" || !e.location?.city;
+      })
+      .map(e => {
+        const isFree = e.isFree || e.ticketTypes?.every(t => t.price === 0) || false;
+        const prices = e.ticketTypes?.map(t => t.price).filter(p => p > 0) || [];
+        const minPrice = prices.length ? Math.min(...prices) : null;
+        const maxPrice = prices.length ? Math.max(...prices) : null;
+        const price = isFree ? "Free" : minPrice && maxPrice && minPrice !== maxPrice ? `$${minPrice}–$${maxPrice}` : minPrice ? `$${minPrice}` : "Ticketed";
+        const catText = `${e.name || ""} ${e.description || ""} ${e.category || ""}`;
+        const startLocal = e.startDate || e.dates?.start;
+
+        return {
+          id: `hx_${e._id || e.id}`,
+          title: e.name || "Untitled Event",
+          venue: e.location?.venueName || e.location?.suburb || "Brisbane",
+          suburb: e.location?.suburb || e.location?.city || "Brisbane",
+          address: [e.location?.address, e.location?.suburb, e.location?.city].filter(Boolean).join(", "),
+          time: startLocal ? new Date(startLocal).toLocaleTimeString("en-AU", { hour: "numeric", minute: "2-digit", hour12: true, timeZone: "Australia/Brisbane" }) : "",
+          price,
+          isFree,
+          category: detectCategory(catText),
+          tags: [e.category, e.tags?.[0]].filter(Boolean).map(t => t.toLowerCase()),
+          description: (e.description || "").replace(/<[^>]*>/g, "").slice(0, 350),
+          url: e.url || `https://events.humanitix.com/`,
+          image: e.bannerImage || null,
+          source: "humanitix",
+          isLive: true,
+        };
+      });
+  } catch (err) {
+    console.error("Humanitix fetch error:", err);
+    return [];
+  }
+}
+
 // ── FALLBACK DATABASE ─────────────────────────────────────────────────────────
 function generateFallback(date) {
   const dow = new Date(date + "T12:00:00").getDay();
@@ -265,15 +337,17 @@ export default async function handler(req, res) {
   }
 
   try {
-    // Fetch real events in parallel
-    const [ebEvents, tmEvents] = await Promise.allSettled([
+    // Fetch real events in parallel from all sources
+    const [ebEvents, tmEvents, hxEvents] = await Promise.allSettled([
       fetchEventbrite(date),
       fetchTicketmaster(date),
+      fetchHumanitix(date),
     ]);
 
     const liveEvents = [
       ...(ebEvents.status === "fulfilled" ? ebEvents.value : []),
       ...(tmEvents.status === "fulfilled" ? tmEvents.value : []),
+      ...(hxEvents.status === "fulfilled" ? hxEvents.value : []),
     ];
 
     // Generate fallback for categories not covered by live data
@@ -285,6 +359,8 @@ export default async function handler(req, res) {
 
     const all = dedup([...liveEvents, ...fillIn]);
 
+    const hxCount = hxEvents.status === "fulfilled" ? hxEvents.value.length : 0;
+
     return res.status(200).json({
       events: all,
       meta: {
@@ -294,6 +370,7 @@ export default async function handler(req, res) {
         sources: {
           eventbrite: ebEvents.status === "fulfilled" ? ebEvents.value.length : 0,
           ticketmaster: tmEvents.status === "fulfilled" ? tmEvents.value.length : 0,
+          humanitix: hxCount,
           fallback: all.length - liveEvents.length,
         }
       }

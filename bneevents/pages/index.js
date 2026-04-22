@@ -1,385 +1,382 @@
-import { useState, useCallback } from "react";
-import Head from "next/head";
+// pages/api/events.js
+// Server-side API route — keys are safe here, never exposed to browser
 
-const CAT_ICONS = { music:"🎵", arts:"🎨", food:"🍜", outdoors:"🥾", comedy:"😂", sports:"⚽", community:"🤝", nightlife:"🌙", family:"👨‍👩‍👧", other:"📌" };
-const CAT_LABELS = { music:"Music", arts:"Arts & Culture", food:"Food & Drink", outdoors:"Outdoors", comedy:"Comedy", sports:"Sports", community:"Community", nightlife:"Nightlife", family:"Family", other:"Other" };
-const FILTERS = ["all","music","nightlife","arts","comedy","food","community","outdoors","sports","family","free"];
-const SOURCE_COLORS = { eventbrite:"#F5E642", ticketmaster:"#026CDF", meetup:"#F96854", humanitix:"#00B4D8", fallback:"#444", community:"#C77DFF" };
+const BRISBANE_SUBURBS = [
+  "Brisbane", "Fortitude Valley", "South Brisbane", "West End", "New Farm",
+  "Newstead", "Teneriffe", "Milton", "Paddington", "Red Hill", "Spring Hill",
+  "Bowen Hills", "Herston", "Kelvin Grove", "Woolloongabba", "Kangaroo Point",
+  "East Brisbane", "Hawthorne", "Bulimba", "Balmoral", "Hamilton", "Ascot",
+  "Clayfield", "Hendra", "Albion", "Lutwyche", "Windsor", "Wilston",
+  "Toowong", "Auchenflower", "St Lucia", "Indooroopilly", "Taringa",
+  "Sunnybank", "Sunnybank Hills", "Acacia Ridge", "Carindale", "Coorparoo",
+  "Camp Hill", "Holland Park", "Mount Gravatt", "Annerley", "Moorooka",
+  "Rocklea", "Oxley", "Darra", "Inala", "Forest Lake", "Springfield",
+  "Boondall", "Chermside", "Aspley", "Stafford", "Everton Park",
+  "Mitchelton", "Keperra", "The Gap", "Ferny Grove", "Samford",
+  "Manly", "Wynnum", "Lota", "Capalaba", "Cleveland", "Redland Bay"
+];
 
-function todayStr() {
-  const d = new Date();
-  return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}-${String(d.getDate()).padStart(2,"0")}`;
+// Category detection
+const CAT_KEYWORDS = {
+  music: ["music","concert","gig","band","live","jazz","folk","metal","indie","dj","electronic","classical","hip hop","festival","acoustic","blues","country","reggae","punk","rock","choir","orchestra","opera"],
+  arts: ["art","gallery","exhibition","expo","theatre","theater","dance","film","cinema","craft","paint","sculpture","photography","design","fashion","ballet","performance"],
+  food: ["food","drink","wine","beer","cocktail","dining","restaurant","brunch","market","tasting","chef","cooking","coffee","brewery","gin","whiskey","distillery","farmers","culinary"],
+  outdoors: ["hike","walk","run","cycle","bike","kayak","nature","park","outdoor","trail","climb","swim","surf","adventure","fitness","yoga","meditation","wellness","bootcamp","beach","parkrun"],
+  comedy: ["comedy","stand-up","standup","improv","laugh","humour","comedian","comic"],
+  sports: ["sport","football","rugby","cricket","basketball","tennis","golf","soccer","netball","athletics","swimming","boxing","ufc","nrl","afl","volleyball","triathlon","marathon"],
+  community: ["meetup","networking","social","community","volunteer","charity","fundraiser","workshop","seminar","talk","lecture","language","board game","trivia","quiz","book club","speed dating","karaoke","escape room"],
+  nightlife: ["nightclub","club","bar","pub","karaoke","party","rave","dj night","dance night","rooftop","lounge"],
+  family: ["family","kids","children","toddler","baby","school holiday","junior","youth"],
+};
+
+function detectCategory(text) {
+  const t = (text || "").toLowerCase();
+  for (const [cat, keywords] of Object.entries(CAT_KEYWORDS)) {
+    if (keywords.some(k => t.includes(k))) return cat;
+  }
+  return "other";
 }
-function getDOW(s) { return new Date(s+"T12:00:00").toLocaleDateString("en-AU",{weekday:"long"}); }
-function getFmt(s) { return new Date(s+"T12:00:00").toLocaleDateString("en-AU",{day:"numeric",month:"long",year:"numeric"}); }
 
-function loadCommunity() { try { return JSON.parse(localStorage.getItem("bne_community")||"[]"); } catch { return []; } }
-function saveCommunity(e) { try { localStorage.setItem("bne_community", JSON.stringify(e)); } catch {} }
+function isBrisbane(text) {
+  if (!text) return false;
+  const t = text.toLowerCase();
+  return BRISBANE_SUBURBS.some(s => t.includes(s.toLowerCase())) || t.includes("qld") || t.includes("queensland");
+}
 
-export default function Home() {
-  const [date, setDate] = useState(todayStr());
-  const [events, setEvents] = useState([]);
-  const [filter, setFilter] = useState("all");
-  const [status, setStatus] = useState("idle");
-  const [meta, setMeta] = useState(null);
-  const [expandedId, setExpandedId] = useState(null);
-  const [showModal, setShowModal] = useState(false);
-  const [community, setCommunity] = useState([]);
-  const [form, setForm] = useState({ name:"", date:"", time:"", venue:"", cat:"community", price:"free", link:"", desc:"" });
+// ── EVENTBRITE ────────────────────────────────────────────────────────────────
+async function fetchEventbrite(date) {
+  const token = process.env.EVENTBRITE_TOKEN;
+  if (!token || token === "your_private_token_here") return [];
 
-  // Load community events client-side only
-  const initCommunity = useCallback(() => {
-    if (typeof window !== "undefined") setCommunity(loadCommunity());
-  }, []);
+  try {
+    const start = `${date}T00:00:00`;
+    const end   = `${date}T23:59:59`;
 
-  const filtered = (() => {
-    if (filter === "all") return events;
-    if (filter === "free") return events.filter(e => e.isFree);
-    return events.filter(e => e.category === filter);
-  })();
+    const params = new URLSearchParams({
+      "location.address": "Brisbane, Queensland, Australia",
+      "location.within": "40km",
+      "start_date.range_start": start,
+      "start_date.range_end": end,
+      "expand": "venue,ticket_availability,category",
+      "page_size": "50",
+    });
 
-  async function search() {
-    setStatus("loading");
-    setExpandedId(null);
-    setFilter("all");
-    setEvents([]);
-    setMeta(null);
+    const res = await fetch(`https://www.eventbriteapi.com/v3/events/search/?${params}`, {
+      headers: { Authorization: `Bearer ${token}` },
+      next: { revalidate: 300 }, // cache 5 min
+    });
 
-    try {
-      const res = await fetch(`/api/events?date=${date}`);
-      if (!res.ok) throw new Error("API error");
-      const data = await res.json();
-
-      // Merge community events
-      const comm = (typeof window !== "undefined" ? loadCommunity() : [])
-        .filter(e => e.date === date)
-        .map(e => ({ ...e, source: "community", isLive: false }));
-
-      const all = [...data.events, ...comm];
-      setEvents(all);
-      setMeta(data.meta);
-      setStatus("done");
-    } catch (err) {
-      console.error(err);
-      setStatus("error");
+    if (!res.ok) {
+      console.error("Eventbrite error:", res.status, await res.text());
+      return [];
     }
+
+    const data = await res.json();
+    if (!data.events) return [];
+
+    return data.events
+      .filter(e => {
+        // Filter to Brisbane only
+        const addr = e.venue?.address?.localized_address_display || "";
+        const city = e.venue?.address?.city || "";
+        return isBrisbane(addr) || isBrisbane(city) || !e.venue;
+      })
+      .map(e => {
+        const isFree = e.is_free || false;
+        const minPrice = e.ticket_availability?.minimum_ticket_price?.display;
+        const maxPrice = e.ticket_availability?.maximum_ticket_price?.display;
+        const price = isFree ? "Free" : (minPrice && maxPrice && minPrice !== maxPrice ? `${minPrice}–${maxPrice}` : minPrice || "Ticketed");
+        const catText = `${e.name?.text || ""} ${e.description?.text || ""} ${e.category?.name || ""}`;
+
+        return {
+          id: `eb_${e.id}`,
+          title: e.name?.text || "Untitled Event",
+          venue: e.venue?.name || "Brisbane",
+          suburb: e.venue?.address?.city || e.venue?.address?.localized_area_display || "Brisbane",
+          address: e.venue?.address?.localized_address_display || "",
+          time: e.start?.local ? new Date(e.start.local).toLocaleTimeString("en-AU", { hour: "numeric", minute: "2-digit", hour12: true }) : "",
+          price,
+          isFree,
+          category: detectCategory(catText),
+          tags: [e.category?.name, e.subcategory?.name, e.format?.name].filter(Boolean).map(t => t.toLowerCase()),
+          description: (e.summary || e.description?.text || "").slice(0, 350),
+          url: e.url || "https://eventbrite.com.au",
+          image: e.logo?.url || null,
+          source: "eventbrite",
+          isLive: true,
+        };
+      });
+  } catch (err) {
+    console.error("Eventbrite fetch error:", err);
+    return [];
   }
-
-  function grouped() {
-    const order = ["music","nightlife","arts","comedy","food","community","outdoors","sports","family","other"];
-    const map = {};
-    filtered.forEach(e => { const c = e.category||"other"; if (!map[c]) map[c]=[]; map[c].push(e); });
-    return order.filter(c => map[c]?.length).map(c => ({ cat: c, evts: map[c] }));
-  }
-
-  function submitEvent() {
-    if (!form.name||!form.date||!form.venue) return alert("Name, Date and Venue are required.");
-    const ev = {
-      id: `comm_${Date.now()}`, title:form.name, date:form.date, time:form.time,
-      venue:form.venue, suburb:"Brisbane", category:form.cat,
-      isFree:form.price==="free", price:form.price==="free"?"Free":"Paid",
-      url:form.link, description:form.desc, tags:[form.cat], source:"community", isLive:false,
-    };
-    const updated = [...community, ev];
-    setCommunity(updated);
-    saveCommunity(updated);
-    setShowModal(false);
-    if (ev.date === date && status === "done") setEvents(p => [...p, ev]);
-    alert("✅ Event added to the community list!");
-  }
-
-  return (
-    <>
-      <Head>
-        <title>BNE Events — Every Event in Brisbane</title>
-        <meta name="description" content="Find every event happening in Brisbane — concerts, markets, comedy, sports, meetups, karaoke and more." />
-        <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1" />
-        <meta name="theme-color" content="#0A0A0A" />
-        <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🗺️</text></svg>" />
-        <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=DM+Sans:wght@400;500;600;700&display=swap" rel="stylesheet" />
-      </Head>
-
-      <div className="app">
-        {/* HEADER */}
-        <header>
-          <div className="logo-row">
-            <span className="logo">BNE EVENTS</span>
-            <span className="tagline">Every event in Brisbane</span>
-          </div>
-          <div className="search-row">
-            <input type="date" value={date} onChange={e => setDate(e.target.value)} className="date-input" />
-            <button onClick={search} disabled={status==="loading"} className="find-btn">
-              {status === "loading" ? "⏳" : "🔍 Find"}
-            </button>
-          </div>
-        </header>
-
-        {/* FILTERS */}
-        {status !== "idle" && (
-          <div className="filter-bar">
-            {FILTERS.map(f => (
-              <button key={f} onClick={() => setFilter(f)} className={`chip ${filter===f?"active":""}`}>
-                {f==="all"?"All":f==="free"?"💚 Free":`${CAT_ICONS[f]} ${CAT_LABELS[f]}`}
-              </button>
-            ))}
-          </div>
-        )}
-
-        {/* STATS */}
-        {status === "done" && meta && (
-          <div className="stats-bar">
-            <div className="stats-left">
-              <span className="count">{filtered.length}</span> events · {getDOW(date)}
-            </div>
-            <div className="stats-right">{getFmt(date)}</div>
-            <div className="stats-sources">
-              {meta.sources.eventbrite > 0 && <span className="source-pill eb">🟡 {meta.sources.eventbrite} Eventbrite</span>}
-              {meta.sources.ticketmaster > 0 && <span className="source-pill tm">🔵 {meta.sources.ticketmaster} Ticketmaster</span>}
-              {meta.sources.fallback > 0 && <span className="source-pill fb">⚫ {meta.sources.fallback} local guide</span>}
-            </div>
-          </div>
-        )}
-
-        {/* LOADING */}
-        {status === "loading" && (
-          <div className="loading-container">
-            <div className="loading-text">🔎 Scanning Brisbane events...</div>
-            <div className="progress-bar"><div className="progress-fill" /></div>
-            {[1,2,3,4,5].map(i => <div key={i} className="skeleton" style={{animationDelay:`${i*0.12}s`}} />)}
-          </div>
-        )}
-
-        {/* ERROR */}
-        {status === "error" && (
-          <div className="error-box">⚠️ Failed to load events. Check your connection and try again.</div>
-        )}
-
-        {/* IDLE */}
-        {status === "idle" && (
-          <div className="welcome">
-            <div className="welcome-icon">🗺️</div>
-            <h1 className="welcome-title">Find Everything in BNE</h1>
-            <p className="welcome-sub">Real events from Eventbrite & Ticketmaster, plus the complete Brisbane local guide. Pick any date.</p>
-            <div className="welcome-tags">
-              {["🎵 Live Music","🥾 Group Hikes","🎨 Art Expos","😂 Comedy","🍺 Craft Beer","🌙 Club Nights","🤝 Meetups","⚽ Sports","🎤 Karaoke","👨‍👩‍👧 Family Days","🏃 Parkrun","📚 Book Clubs"].map(t => (
-                <span key={t} className="welcome-tag">{t}</span>
-              ))}
-            </div>
-          </div>
-        )}
-
-        {/* NO RESULTS */}
-        {status === "done" && filtered.length === 0 && (
-          <div className="empty">
-            <div style={{fontSize:"2.5rem"}}>🔍</div>
-            <div className="empty-title">Nothing Here</div>
-            <p className="empty-sub">Try a different filter or submit an event you know about.</p>
-          </div>
-        )}
-
-        {/* EVENTS */}
-        {status === "done" && filtered.length > 0 && (
-          <div className="events-list">
-            {filter !== "all"
-              ? filtered.map((e,i) => <EventCard key={e.id} e={e} expanded={expandedId===e.id} onToggle={() => setExpandedId(expandedId===e.id?null:e.id)} delay={i*35} />)
-              : grouped().map(({ cat, evts }) => (
-                  <div key={cat}>
-                    <div className="section-header"><span>{CAT_ICONS[cat]} {CAT_LABELS[cat]}</span><div className="divider" /></div>
-                    {evts.map((e,i) => <EventCard key={e.id} e={e} expanded={expandedId===e.id} onToggle={() => setExpandedId(expandedId===e.id?null:e.id)} delay={i*35} />)}
-                  </div>
-                ))
-            }
-          </div>
-        )}
-
-        {/* FAB */}
-        <button className="fab" onClick={() => { setForm(f => ({...f,date})); setShowModal(true); }}>
-          ＋ Submit Event
-        </button>
-
-        {/* SUBMIT MODAL */}
-        {showModal && (
-          <div className="modal-overlay" onClick={() => setShowModal(false)}>
-            <div className="modal" onClick={e => e.stopPropagation()}>
-              <div className="modal-title">Submit an Event</div>
-              <p className="modal-sub">Know something that's not showing? Add it for the community.</p>
-              {[
-                {l:"Event Name *",t:"text",k:"name",p:"e.g. Korean Karaoke Night at Noona Bar"},
-                {l:"Date *",t:"date",k:"date"},
-                {l:"Time",t:"time",k:"time"},
-                {l:"Venue / Location *",t:"text",k:"venue",p:"e.g. The Triffid, Fortitude Valley"},
-                {l:"Ticket / Event Link",t:"url",k:"link",p:"https://..."},
-              ].map(({l,t,k,p}) => (
-                <div key={k}>
-                  <div className="form-label">{l}</div>
-                  <input type={t} placeholder={p} value={form[k]} onChange={e => setForm(f=>({...f,[k]:e.target.value}))} className="form-input" />
-                </div>
-              ))}
-              <div className="form-label">Category</div>
-              <select value={form.cat} onChange={e => setForm(f=>({...f,cat:e.target.value}))} className="form-input">
-                {Object.entries(CAT_LABELS).map(([v,l]) => <option key={v} value={v}>{CAT_ICONS[v]} {l}</option>)}
-              </select>
-              <div className="form-label">Free or Paid?</div>
-              <select value={form.price} onChange={e => setForm(f=>({...f,price:e.target.value}))} className="form-input">
-                <option value="free">Free</option>
-                <option value="paid">Paid / Ticketed</option>
-              </select>
-              <div className="form-label">Description</div>
-              <textarea value={form.desc} onChange={e => setForm(f=>({...f,desc:e.target.value}))} placeholder="Tell people what it's about..." className="form-input form-textarea" />
-              <div className="modal-actions">
-                <button onClick={() => setShowModal(false)} className="btn-cancel">Cancel</button>
-                <button onClick={submitEvent} className="btn-submit">Add Event ✓</button>
-              </div>
-            </div>
-          </div>
-        )}
-      </div>
-
-      <style jsx global>{`
-        * { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
-        html, body { background: #0A0A0A; color: #E8E8E8; font-family: 'DM Sans', system-ui, sans-serif; }
-        ::-webkit-scrollbar { display: none; }
-        input[type=date]::-webkit-calendar-picker-indicator { filter: invert(1) opacity(0.4); }
-        @keyframes fadeUp { from{opacity:0;transform:translateY(8px)} to{opacity:1;transform:translateY(0)} }
-        @keyframes glow { 0%,100%{opacity:0.35} 50%{opacity:0.9} }
-
-        .app { max-width: 480px; margin: 0 auto; min-height: 100vh; position: relative; }
-
-        header { position: sticky; top: 0; z-index: 50; background: #0A0A0A; border-bottom: 1px solid #252525; padding: 14px 16px 12px; }
-        .logo-row { display: flex; align-items: baseline; gap: 10px; margin-bottom: 12px; }
-        .logo { font-family: 'Bebas Neue', sans-serif; font-size: 2.1rem; color: #F5E642; letter-spacing: 3px; line-height: 1; }
-        .tagline { font-size: 0.6rem; color: #777; letter-spacing: 1.5px; text-transform: uppercase; }
-        .search-row { display: flex; gap: 8px; }
-        .date-input { flex: 1; background: #181818; border: 1px solid #252525; border-radius: 10px; color: #E8E8E8; font-family: inherit; font-size: 0.95rem; padding: 10px 14px; outline: none; }
-        .date-input:focus { border-color: #F5E642; }
-        .find-btn { background: #F5E642; color: #0A0A0A; border: none; border-radius: 10px; padding: 10px 20px; font-family: inherit; font-weight: 700; font-size: 0.9rem; cursor: pointer; }
-        .find-btn:disabled { opacity: 0.6; background: #3a3a00; cursor: not-allowed; }
-        .find-btn:active { opacity: 0.8; }
-
-        .filter-bar { display: flex; gap: 8px; overflow-x: auto; padding: 10px 16px; border-bottom: 1px solid #252525; scrollbar-width: none; }
-        .filter-bar::-webkit-scrollbar { display: none; }
-        .chip { background: #181818; color: #777; border: 1px solid #252525; border-radius: 20px; padding: 6px 14px; font-size: 0.75rem; font-weight: 500; white-space: nowrap; cursor: pointer; flex-shrink: 0; font-family: inherit; transition: all 0.15s; }
-        .chip.active { background: #F5E642; color: #0A0A0A; border-color: #F5E642; font-weight: 700; }
-        .chip:active { transform: scale(0.93); }
-
-        .stats-bar { background: #111; border-bottom: 1px solid #252525; padding: 8px 16px; }
-        .stats-left { font-size: 0.78rem; color: #777; }
-        .count { color: #F5E642; font-weight: 700; }
-        .stats-right { font-size: 0.68rem; color: #777; }
-        .stats-sources { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 5px; }
-        .source-pill { font-size: 0.62rem; padding: 2px 8px; border-radius: 10px; }
-        .source-pill.eb { background: rgba(245,230,66,0.12); color: #F5E642; }
-        .source-pill.tm { background: rgba(2,108,223,0.15); color: #4CC9F0; }
-        .source-pill.fb { background: rgba(255,255,255,0.06); color: #777; }
-
-        .loading-container { padding: 20px 16px; }
-        .loading-text { text-align: center; color: #F5E642; font-size: 0.8rem; letter-spacing: 0.5px; margin-bottom: 12px; }
-        .progress-bar { height: 2px; background: #252525; border-radius: 2px; overflow: hidden; margin-bottom: 16px; }
-        .progress-fill { height: 100%; width: 65%; background: #F5E642; border-radius: 2px; animation: glow 1.4s ease-in-out infinite; }
-        .skeleton { background: #181818; border-radius: 12px; height: 95px; margin-bottom: 10px; border: 1px solid #252525; animation: glow 1.4s ease-in-out infinite; }
-
-        .error-box { margin: 16px; background: rgba(255,59,48,0.1); border: 1px solid rgba(255,59,48,0.3); border-radius: 10px; padding: 14px 16px; font-size: 0.85rem; color: #ff6b6b; }
-
-        .welcome { text-align: center; padding: 60px 30px 40px; display: flex; flex-direction: column; align-items: center; gap: 14px; }
-        .welcome-icon { font-size: 3rem; }
-        .welcome-title { font-family: 'Bebas Neue', sans-serif; font-size: 1.9rem; color: #F5E642; letter-spacing: 2px; }
-        .welcome-sub { font-size: 0.83rem; color: #777; line-height: 1.75; max-width: 290px; }
-        .welcome-tags { display: flex; flex-wrap: wrap; gap: 7px; justify-content: center; margin-top: 4px; }
-        .welcome-tag { font-size: 0.72rem; padding: 4px 11px; background: #181818; border-radius: 20px; color: #777; border: 1px solid #252525; }
-
-        .empty { text-align: center; padding: 60px 20px; display: flex; flex-direction: column; align-items: center; gap: 8px; }
-        .empty-title { font-family: 'Bebas Neue', sans-serif; font-size: 1.5rem; color: #F5E642; }
-        .empty-sub { font-size: 0.83rem; color: #777; }
-
-        .events-list { padding: 12px 16px 100px; }
-        .section-header { display: flex; align-items: center; gap: 8px; padding: 16px 0 8px; font-size: 0.58rem; text-transform: uppercase; letter-spacing: 2px; color: #777; }
-        .divider { flex: 1; height: 1px; background: #252525; }
-
-        .event-card { background: #181818; border: 1px solid #252525; border-radius: 14px; padding: 14px 14px 14px 18px; margin-bottom: 9px; position: relative; overflow: hidden; cursor: pointer; transition: border-color 0.15s, transform 0.1s; animation: fadeUp 0.3s ease both; }
-        .event-card:active { transform: scale(0.97); }
-        .event-card.expanded { border-color: #F5E642; }
-        .card-accent { position: absolute; top: 0; left: 0; width: 3px; height: 100%; border-radius: 14px 0 0 14px; }
-        .live-badge { position: absolute; top: 10px; right: 10px; font-size: 0.55rem; background: rgba(245,230,66,0.15); color: #F5E642; padding: 2px 6px; border-radius: 4px; text-transform: uppercase; letter-spacing: 0.5px; font-weight: 700; }
-        .card-top { display: flex; justify-content: space-between; align-items: flex-start; gap: 10px; }
-        .card-title { font-size: 0.92rem; font-weight: 600; line-height: 1.35; flex: 1; }
-        .price-badge { flex-shrink: 0; font-size: 0.67rem; font-weight: 700; padding: 3px 8px; border-radius: 6px; text-transform: uppercase; }
-        .price-free { background: rgba(46,204,113,0.15); color: #2ECC71; }
-        .price-paid { background: rgba(245,230,66,0.1); color: #F5E642; }
-        .card-meta { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 7px; }
-        .meta-item { font-size: 0.72rem; color: #777; }
-        .card-tags { display: flex; flex-wrap: wrap; gap: 5px; margin-top: 8px; }
-        .tag { font-size: 0.6rem; padding: 2px 8px; border-radius: 5px; background: #252525; color: #777; text-transform: uppercase; letter-spacing: 0.3px; }
-        .card-expanded { margin-top: 14px; padding-top: 14px; border-top: 1px solid #252525; }
-        .card-desc { font-size: 0.82rem; color: #aaa; line-height: 1.7; margin-bottom: 12px; }
-        .card-address { font-size: 0.75rem; color: #777; margin-bottom: 12px; }
-        .card-actions { display: flex; gap: 8px; }
-        .btn-ticket { flex: 1; background: #F5E642; color: #0A0A0A; border: none; border-radius: 8px; padding: 10px 14px; font-weight: 700; font-size: 0.82rem; text-decoration: none; text-align: center; display: block; font-family: inherit; cursor: pointer; }
-        .btn-share { background: transparent; color: #E8E8E8; border: 1px solid #252525; border-radius: 8px; padding: 10px 14px; font-size: 0.82rem; cursor: pointer; font-family: inherit; white-space: nowrap; }
-        .card-source { margin-top: 10px; font-size: 0.6rem; color: #777; display: flex; align-items: center; gap: 5px; }
-        .source-dot { width: 5px; height: 5px; border-radius: 50%; display: inline-block; }
-
-        .fab { position: fixed; bottom: 20px; right: 16px; background: #F5E642; color: #0A0A0A; border: none; border-radius: 30px; padding: 13px 22px; font-family: inherit; font-weight: 700; font-size: 0.85rem; cursor: pointer; z-index: 40; box-shadow: 0 4px 24px rgba(245,230,66,0.4); }
-        .fab:active { opacity: 0.8; }
-
-        .modal-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.88); z-index: 100; display: flex; align-items: flex-end; justify-content: center; }
-        .modal { background: #111; border-radius: 20px 20px 0 0; padding: 24px 20px 44px; width: 100%; max-width: 480px; border-top: 1px solid #252525; max-height: 92vh; overflow-y: auto; }
-        .modal-title { font-family: 'Bebas Neue', sans-serif; font-size: 1.6rem; color: #F5E642; margin-bottom: 4px; letter-spacing: 1px; }
-        .modal-sub { font-size: 0.78rem; color: #777; margin-bottom: 16px; }
-        .form-label { font-size: 0.7rem; color: #777; text-transform: uppercase; letter-spacing: 0.5px; margin-top: 14px; margin-bottom: 5px; }
-        .form-input { width: 100%; background: #181818; border: 1px solid #252525; border-radius: 8px; color: #E8E8E8; font-family: inherit; font-size: 0.9rem; padding: 10px 12px; outline: none; }
-        .form-input:focus { border-color: #F5E642; }
-        .form-textarea { min-height: 80px; resize: vertical; }
-        .modal-actions { display: flex; gap: 10px; margin-top: 20px; }
-        .btn-cancel { flex: 1; background: transparent; color: #777; border: 1px solid #252525; border-radius: 8px; padding: 12px; font-family: inherit; font-size: 0.9rem; cursor: pointer; }
-        .btn-submit { flex: 2; background: #F5E642; color: #0A0A0A; border: none; border-radius: 8px; padding: 12px; font-family: inherit; font-weight: 700; font-size: 0.9rem; cursor: pointer; }
-      `}</style>
-    </>
-  );
 }
 
-function EventCard({ e, expanded, onToggle, delay = 0 }) {
-  const color = SOURCE_COLORS[e.source] || "#888";
+// ── TICKETMASTER ──────────────────────────────────────────────────────────────
+async function fetchTicketmaster(date) {
+  const key = process.env.TICKETMASTER_KEY;
+  if (!key || key === "your_key_here") return [];
 
-  function share(ev) {
-    ev.stopPropagation();
-    if (navigator.share) navigator.share({ title: e.title, text: `${e.title} at ${e.venue}`, url: e.url || window.location.href });
+  try {
+    const params = new URLSearchParams({
+      apikey: key,
+      city: "Brisbane",
+      countryCode: "AU",
+      startDateTime: `${date}T00:00:00Z`,
+      endDateTime: `${date}T23:59:59Z`,
+      size: "50",
+      sort: "date,asc",
+    });
+
+    const res = await fetch(`https://app.ticketmaster.com/discovery/v2/events.json?${params}`, {
+      next: { revalidate: 300 },
+    });
+
+    if (!res.ok) return [];
+    const data = await res.json();
+    const items = data._embedded?.events || [];
+
+    return items.map(e => {
+      const venue = e._embedded?.venues?.[0];
+      const priceRange = e.priceRanges?.[0];
+      const price = priceRange ? `$${Math.round(priceRange.min)}–$${Math.round(priceRange.max)}` : "Ticketed";
+      const catText = `${e.name} ${e.classifications?.[0]?.segment?.name || ""} ${e.classifications?.[0]?.genre?.name || ""}`;
+
+      return {
+        id: `tm_${e.id}`,
+        title: e.name,
+        venue: venue?.name || "Brisbane",
+        suburb: venue?.city?.name || "Brisbane",
+        address: venue ? `${venue.address?.line1 || ""}, ${venue.city?.name || ""}` : "",
+        time: e.dates?.start?.localTime ? new Date(`2000-01-01T${e.dates.start.localTime}`).toLocaleTimeString("en-AU", { hour: "numeric", minute: "2-digit", hour12: true }) : "",
+        price,
+        isFree: false,
+        category: detectCategory(catText),
+        tags: [e.classifications?.[0]?.segment?.name, e.classifications?.[0]?.genre?.name].filter(Boolean).map(t => t.toLowerCase()),
+        description: e.info || e.pleaseNote || "",
+        url: e.url || "https://ticketmaster.com.au",
+        image: e.images?.[0]?.url || null,
+        source: "ticketmaster",
+        isLive: true,
+      };
+    });
+  } catch (err) {
+    console.error("Ticketmaster fetch error:", err);
+    return [];
+  }
+}
+
+// ── HUMANITIX ─────────────────────────────────────────────────────────────────
+async function fetchHumanitix(date) {
+  const key = process.env.HUMANITIX_KEY;
+  if (!key) return [];
+
+  try {
+    const startOfDay = new Date(date + "T00:00:00+10:00").toISOString();
+    const endOfDay   = new Date(date + "T23:59:59+10:00").toISOString();
+
+    // Fetch events filtered by date and Brisbane location
+    const params = new URLSearchParams({
+      startDate: startOfDay,
+      endDate: endOfDay,
+      timezone: "Australia/Brisbane",
+      pageSize: "50",
+      page: "1",
+    });
+
+    const res = await fetch(`https://api.humanitix.com/v1/events?${params}`, {
+      headers: {
+        "x-api-key": key,
+        "Content-Type": "application/json",
+      },
+      next: { revalidate: 300 },
+    });
+
+    if (!res.ok) {
+      console.error("Humanitix error:", res.status, await res.text());
+      return [];
+    }
+
+    const data = await res.json();
+    const items = data.events || data.data || [];
+
+    return items
+      .filter(e => {
+        const loc = `${e.location?.city || ""} ${e.location?.state || ""} ${e.location?.suburb || ""}`;
+        return isBrisbane(loc) || e.location?.state === "QLD" || !e.location?.city;
+      })
+      .map(e => {
+        const isFree = e.isFree || e.ticketTypes?.every(t => t.price === 0) || false;
+        const prices = e.ticketTypes?.map(t => t.price).filter(p => p > 0) || [];
+        const minPrice = prices.length ? Math.min(...prices) : null;
+        const maxPrice = prices.length ? Math.max(...prices) : null;
+        const price = isFree ? "Free" : minPrice && maxPrice && minPrice !== maxPrice ? `$${minPrice}–$${maxPrice}` : minPrice ? `$${minPrice}` : "Ticketed";
+        const catText = `${e.name || ""} ${e.description || ""} ${e.category || ""}`;
+        const startLocal = e.startDate || e.dates?.start;
+
+        return {
+          id: `hx_${e._id || e.id}`,
+          title: e.name || "Untitled Event",
+          venue: e.location?.venueName || e.location?.suburb || "Brisbane",
+          suburb: e.location?.suburb || e.location?.city || "Brisbane",
+          address: [e.location?.address, e.location?.suburb, e.location?.city].filter(Boolean).join(", "),
+          time: startLocal ? new Date(startLocal).toLocaleTimeString("en-AU", { hour: "numeric", minute: "2-digit", hour12: true, timeZone: "Australia/Brisbane" }) : "",
+          price,
+          isFree,
+          category: detectCategory(catText),
+          tags: [e.category, e.tags?.[0]].filter(Boolean).map(t => t.toLowerCase()),
+          description: (e.description || "").replace(/<[^>]*>/g, "").slice(0, 350),
+          url: e.url || `https://events.humanitix.com/`,
+          image: e.bannerImage || null,
+          source: "humanitix",
+          isLive: true,
+        };
+      });
+  } catch (err) {
+    console.error("Humanitix fetch error:", err);
+    return [];
+  }
+}
+
+// ── FALLBACK DATABASE ─────────────────────────────────────────────────────────
+function generateFallback(date) {
+  const dow = new Date(date + "T12:00:00").getDay();
+  const isWknd = dow === 0 || dow === 6;
+  const isFri = dow === 5;
+
+  function sr(i) {
+    const s = parseInt(date.replace(/-/g, "")) + i * 997;
+    const x = Math.sin(s) * 43758.5453;
+    return x - Math.floor(x);
   }
 
-  return (
-    <div className={`event-card ${expanded ? "expanded" : ""}`} onClick={onToggle} style={{ animationDelay: `${delay}ms` }}>
-      <div className="card-accent" style={{ background: color }} />
-      {e.isLive && <div className="live-badge">LIVE</div>}
-      <div className="card-top">
-        <div className="card-title" style={{ paddingRight: e.isLive ? 40 : 0 }}>{e.title}</div>
-        <div className={`price-badge ${e.isFree ? "price-free" : "price-paid"}`}>{e.isFree ? "Free" : (e.price || "Paid")}</div>
-      </div>
-      <div className="card-meta">
-        {e.time && <span className="meta-item">🕐 {e.time}</span>}
-        {e.venue && <span className="meta-item">📍 {e.venue}{e.suburb && e.suburb !== e.venue ? `, ${e.suburb}` : ""}</span>}
-      </div>
-      {e.tags?.filter(Boolean).length > 0 && (
-        <div className="card-tags">
-          {e.tags.filter(Boolean).slice(0,3).map((t,i) => <span key={i} className="tag">{t}</span>)}
-        </div>
-      )}
-      {expanded && (
-        <div className="card-expanded">
-          {e.description && <div className="card-desc">{e.description}</div>}
-          {e.address && <div className="card-address">📌 {e.address}</div>}
-          <div className="card-actions">
-            {e.url && (
-              <a href={e.url} target="_blank" rel="noopener noreferrer" onClick={ev => ev.stopPropagation()} className="btn-ticket">
-                {e.isLive ? "Get Tickets →" : "More Info →"}
-              </a>
-            )}
-            <button onClick={share} className="btn-share">↗ Share</button>
-          </div>
-          <div className="card-source">
-            <span className="source-dot" style={{ background: color }} />
-            {e.isLive ? `Live from ${e.source}` : "Local venue guide"}
-          </div>
-        </div>
-      )}
-    </div>
-  );
+  const events = [];
+  let id = 9000;
+
+  const VENUE_TEMPLATES = [
+    // MUSIC
+    { cat:"music", venue:"The Triffid", suburb:"Newstead", url:"https://thetriffid.com.au", title:"Live Music Night — The Triffid", time:"7:30 PM", price:"$15", isFree:false, tags:["live music","local"], desc:"Local and touring acts at one of Brisbane's best live music venues. Support acts from 7 PM." },
+    { cat:"music", venue:"Fortitude Music Hall", suburb:"Fortitude Valley", url:"https://fortitudemusichall.com", title:"Live Concert — Fortitude Music Hall", time:"8:00 PM", price:"$25", isFree:false, tags:["live music","concert"], desc:"A spectacular concert experience at Brisbane's grandest music venue." },
+    { cat:"music", venue:"The Zoo", suburb:"Fortitude Valley", url:"https://eventbrite.com.au/d/australia--brisbane/music/", title:"Open Mic Night — The Zoo", time:"7:00 PM", price:"Free", isFree:true, tags:["open mic","local"], desc:"All musicians welcome. Sign up from 6:30 PM at The Zoo." },
+    { cat:"music", venue:"Woolly Mammoth Saloon", suburb:"Fortitude Valley", url:"https://woollymammoth.com.au", title:"DJ Night — Woolly Mammoth", time:"9:00 PM", price:"$10", isFree:false, tags:["dj","electronic"], desc:"Resident DJs spin house, electronic and dance at Woolly Mammoth." },
+    { cat:"music", venue:"Black Bear Lodge", suburb:"Fortitude Valley", url:"https://blackbearlodge.com.au", title:"Acoustic Sessions — Black Bear Lodge", time:"6:30 PM", price:"Free", isFree:true, tags:["acoustic","chill"], desc:"Intimate acoustic sets in the cosy surroundings of Black Bear Lodge." },
+    { cat:"music", venue:"The Brightside", suburb:"Fortitude Valley", url:"https://thebrightside.com.au", title:"Rock Night — The Brightside", time:"8:00 PM", price:"$18", isFree:false, tags:["rock","indie"], desc:"Local rock and indie bands take the stage at The Brightside." },
+    // NIGHTLIFE
+    { cat:"nightlife", venue:"Cloudland", suburb:"Fortitude Valley", url:"https://cloudland.com.au", title:"Saturday Night — Cloudland", time:"9:00 PM", price:"$20", isFree:false, tags:["nightclub","dancing"], desc:"Brisbane's most iconic nightclub. Multiple rooms, rooftop terrace, world-class DJs." },
+    { cat:"nightlife", venue:"Family Nightclub", suburb:"Fortitude Valley", url:"https://thefamily.com.au", title:"Queer Night — Family", time:"9:00 PM", price:"$15", isFree:false, tags:["lgbtq+","inclusive"], desc:"Brisbane's beloved inclusive queer nightclub. Drag, DJs, and the best crowd in town." },
+    { cat:"nightlife", venue:"The Wickham Hotel", suburb:"Fortitude Valley", url:"https://thewickham.com.au", title:"Rooftop Sessions — The Wickham", time:"5:00 PM", price:"Free", isFree:true, tags:["rooftop","drinks"], desc:"Sunset drinks on the rooftop at The Wickham. Walk-ins welcome." },
+    { cat:"nightlife", venue:"Howard Smith Wharves", suburb:"Brisbane City", url:"https://howardsmithwharves.com", title:"Sunset Bar — Howard Smith Wharves", time:"4:00 PM", price:"Free", isFree:true, tags:["waterfront","drinks"], desc:"Drinks by the Brisbane River as the sun sets over the Story Bridge." },
+    // ARTS
+    { cat:"arts", venue:"Gallery of Modern Art (GOMA)", suburb:"South Brisbane", url:"https://qagoma.qld.gov.au", title:"Current Exhibition — GOMA", time:"10:00 AM", price:"Free", isFree:true, tags:["gallery","exhibition"], desc:"World-class contemporary art at GOMA. Free entry to the permanent collection." },
+    { cat:"arts", venue:"Brisbane Powerhouse", suburb:"New Farm", url:"https://brisbanepowerhouse.org", title:"Theatre Performance — Brisbane Powerhouse", time:"7:30 PM", price:"$35–$65", isFree:false, tags:["theatre","performance"], desc:"Live theatre at Brisbane's iconic Powerhouse. Book ahead — sells out fast." },
+    { cat:"arts", venue:"Metro Arts", suburb:"Brisbane City", url:"https://metroarts.com.au", title:"Artist Talk — Metro Arts", time:"6:00 PM", price:"Free", isFree:true, tags:["art","talk"], desc:"Meet artists and hear about their creative process at Metro Arts." },
+    { cat:"arts", venue:"Queensland Museum", suburb:"South Brisbane", url:"https://museum.qld.gov.au", title:"Explore Queensland Museum", time:"9:30 AM", price:"Free", isFree:true, tags:["museum","family","education"], desc:"Discover Queensland's natural and cultural history. Free general admission." },
+    // COMEDY
+    { cat:"comedy", venue:"Sit Down Comedy Club", suburb:"Fortitude Valley", url:"https://sitdowncomedy.com.au", title:"Stand-Up Comedy Night", time:"7:30 PM", price:"$25", isFree:false, tags:["stand-up","comedy"], desc:"Brisbane's dedicated comedy club delivering laughs every week." },
+    { cat:"comedy", venue:"Brisbane Powerhouse", suburb:"New Farm", url:"https://brisbanepowerhouse.org", title:"Comedy Festival Show — Powerhouse", time:"8:00 PM", price:"$30", isFree:false, tags:["comedy","festival"], desc:"Top comedians perform at Brisbane Powerhouse. Always a brilliant night." },
+    // FOOD
+    { cat:"food", venue:"Jan Powers Farmers Market", suburb:"New Farm", url:"https://janpowersfarmersmarkets.com.au", title:"Farmers Markets — New Farm Powerhouse", time:"6:00 AM", price:"Free entry", isFree:true, tags:["markets","fresh produce"], desc:"Brisbane's best farmers market. Fresh produce, artisan goods, street food and coffee." },
+    { cat:"food", venue:"Davies Park Market", suburb:"West End", url:"https://daviespark.com.au", title:"Davies Park Saturday Market", time:"6:00 AM", price:"Free entry", isFree:true, tags:["markets","organic","community"], desc:"West End's beloved Saturday market. Organic produce, street food, live music." },
+    { cat:"food", venue:"Felons Brewing Co", suburb:"Howard Smith Wharves", url:"https://felons.com.au", title:"Craft Beer Tasting — Felons", time:"5:00 PM", price:"From $20", isFree:false, tags:["craft beer","brewery"], desc:"Guided tasting of Felons' seasonal brews on the banks of the Brisbane River." },
+    { cat:"food", venue:"Eat Street Northshore", suburb:"Hamilton", url:"https://eatstreetnorthshore.com.au", title:"Eat Street Northshore Markets", time:"4:00 PM", price:"$3 entry", isFree:false, tags:["food market","street food"], desc:"200+ international food vendors in a vibrant container market on the river." },
+    // OUTDOORS
+    { cat:"outdoors", venue:"Kangaroo Point Cliffs", suburb:"Kangaroo Point", url:"https://meetup.com/brisbane-outdoor-adventures/", title:"Rock Climbing — Kangaroo Point", time:"6:00 AM", price:"Free", isFree:true, tags:["climbing","outdoors"], desc:"Free outdoor bouldering and top-rope climbing. Brisbane's climbing community welcomes beginners." },
+    { cat:"outdoors", venue:"South Bank Parklands", suburb:"South Bank", url:"https://visitsouthbank.com.au", title:"Parkrun — South Bank", time:"7:00 AM", price:"Free", isFree:true, tags:["running","5km","parkrun"], desc:"Free weekly 5km timed run. Walk, jog or run — all welcome. Register at parkrun.com.au." },
+    { cat:"outdoors", venue:"Mt Coot-tha", suburb:"Toowong", url:"https://meetup.com/brisbane-hiking-group/", title:"Sunrise Hike — Mt Coot-tha", time:"5:30 AM", price:"Free", isFree:true, tags:["hiking","sunrise"], desc:"Community sunrise hike with views over Brisbane. Bring water and a head torch." },
+    { cat:"outdoors", venue:"Riverlife Adventure Centre", suburb:"Kangaroo Point", url:"https://riverlife.com.au", title:"Kayaking on the Brisbane River", time:"7:00 AM", price:"From $45", isFree:false, tags:["kayaking","adventure"], desc:"Guided kayaking on the Brisbane River. See the city skyline from the water." },
+    // SPORTS
+    { cat:"sports", venue:"Suncorp Stadium", suburb:"Milton", url:"https://premier.ticketek.com.au", title:"NRL at Suncorp Stadium", time:"7:35 PM", price:"From $25", isFree:false, tags:["NRL","rugby league"], desc:"Live NRL action at Suncorp Stadium — one of Australia's great sporting venues." },
+    { cat:"sports", venue:"The Gabba", suburb:"Woolloongabba", url:"https://premier.ticketek.com.au", title:"AFL: Brisbane Lions — The Gabba", time:"4:35 PM", price:"From $28", isFree:false, tags:["AFL","Brisbane Lions"], desc:"The Lions play at the Gabba. Join thousands of fans for live AFL action." },
+    // COMMUNITY
+    { cat:"community", venue:"Archive Beer Boutique", suburb:"Fortitude Valley", url:"https://archivebeer.com.au", title:"Trivia Night — Archive Beer Boutique", time:"7:00 PM", price:"Free", isFree:true, tags:["trivia","pub quiz","social"], desc:"Weekly trivia at one of Brisbane's best beer bars. Teams up to 6. Great prizes." },
+    { cat:"community", venue:"Noraebang Karaoke", suburb:"Sunnybank", url:"https://eventbrite.com.au/d/australia--brisbane/community/", title:"Korean Karaoke — Noraebang Sunnybank", time:"8:00 PM", price:"From $15/hr per room", isFree:false, tags:["karaoke","korean","social"], desc:"Private karaoke rooms in Sunnybank. Korean and international song catalogues." },
+    { cat:"community", venue:"Hub Brisbane", suburb:"Brisbane City", url:"https://hubaustralia.com", title:"Tech & Startup Meetup Brisbane", time:"6:30 PM", price:"Free", isFree:true, tags:["tech","networking","startup"], desc:"Brisbane's tech community gathers for talks, demos and networking. All welcome." },
+    { cat:"community", venue:"The Regatta Hotel", suburb:"Toowong", url:"https://regattahotel.com.au", title:"Board Game Night — The Regatta", time:"6:00 PM", price:"Free", isFree:true, tags:["board games","social"], desc:"Huge game collection, friendly crowd. Brisbane's best board game pub night." },
+    { cat:"community", venue:"River City Labs", suburb:"Fortitude Valley", url:"https://rivercitylabs.net", title:"Language Exchange Meetup Brisbane", time:"6:30 PM", price:"Free", isFree:true, tags:["language","multicultural","social"], desc:"Practice English, Spanish, French, Japanese, Korean and more. All welcome." },
+    // FAMILY
+    { cat:"family", venue:"Lone Pine Koala Sanctuary", suburb:"Fig Tree Pocket", url:"https://lonepinekoalasanctuary.com", title:"Lone Pine Koala Sanctuary", time:"9:00 AM", price:"From $45", isFree:false, tags:["family","animals","kids"], desc:"The world's largest koala sanctuary. Hold a koala, hand-feed kangaroos." },
+    { cat:"family", venue:"South Bank Parklands", suburb:"South Bank", url:"https://visitsouthbank.com.au", title:"Free Family Fun — South Bank", time:"All Day", price:"Free", isFree:true, tags:["family","free","beach"], desc:"Free beach swimming, parklands, outdoor entertainment and markets every weekend." },
+    { cat:"family", venue:"Queensland Museum", suburb:"South Brisbane", url:"https://museum.qld.gov.au", title:"Kids Discovery — Queensland Museum", time:"9:30 AM", price:"Free", isFree:true, tags:["family","kids","education"], desc:"Interactive exhibits for children at the Queensland Museum. Free general admission." },
+  ];
+
+  // Use date as seed to vary which events appear each day
+  const weekendOnly = ["markets", "parkrun"];
+  const available = VENUE_TEMPLATES.filter(e => {
+    if (!isWknd && e.tags.some(t => weekendOnly.includes(t))) return false;
+    return true;
+  });
+
+  // Pick a varied subset based on date seed
+  return available
+    .filter((_, i) => sr(i) < (isWknd ? 0.85 : 0.65))
+    .map((e, i) => ({
+      ...e,
+      id: `fb_${id++}`,
+      source: "fallback",
+      isLive: false,
+    }));
+}
+
+function dedup(arr) {
+  const seen = new Set();
+  return arr.filter(e => {
+    const k = (e.title || "").toLowerCase().replace(/[^a-z0-9]/g, "").slice(0, 30);
+    if (seen.has(k)) return false;
+    seen.add(k);
+    return true;
+  });
+}
+
+// ── MAIN HANDLER ──────────────────────────────────────────────────────────────
+export default async function handler(req, res) {
+  if (req.method !== "GET") return res.status(405).json({ error: "Method not allowed" });
+
+  const { date } = req.query;
+  if (!date || !/^\d{4}-\d{2}-\d{2}$/.test(date)) {
+    return res.status(400).json({ error: "Invalid date. Use YYYY-MM-DD" });
+  }
+
+  try {
+    // Fetch real events in parallel from all sources
+    const [ebEvents, tmEvents, hxEvents] = await Promise.allSettled([
+      fetchEventbrite(date),
+      fetchTicketmaster(date),
+      fetchHumanitix(date),
+    ]);
+
+    const liveEvents = [
+      ...(ebEvents.status === "fulfilled" ? ebEvents.value : []),
+      ...(tmEvents.status === "fulfilled" ? tmEvents.value : []),
+      ...(hxEvents.status === "fulfilled" ? hxEvents.value : []),
+    ];
+
+    // Generate fallback for categories not covered by live data
+    const fallback = generateFallback(date);
+    const coveredCats = new Set(liveEvents.map(e => e.category));
+    const fillIn = liveEvents.length > 5
+      ? fallback.filter(e => !coveredCats.has(e.category))
+      : fallback;
+
+    const all = dedup([...liveEvents, ...fillIn]);
+
+    const hxCount = hxEvents.status === "fulfilled" ? hxEvents.value.length : 0;
+
+    return res.status(200).json({
+      events: all,
+      meta: {
+        date,
+        total: all.length,
+        live: liveEvents.length,
+        sources: {
+          eventbrite: ebEvents.status === "fulfilled" ? ebEvents.value.length : 0,
+          ticketmaster: tmEvents.status === "fulfilled" ? tmEvents.value.length : 0,
+          humanitix: hxCount,
+          fallback: all.length - liveEvents.length,
+        }
+      }
+    });
+  } catch (err) {
+    console.error("Events API error:", err);
+    return res.status(500).json({ error: "Failed to fetch events" });
+  }
 }

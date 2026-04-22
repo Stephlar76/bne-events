@@ -58,22 +58,6 @@ const BCC_CAT_MAP = {
   // "Featured" = editorial tag, not a category → skip
 };
 
-// Maps BCC event_type array to our category — first match wins
-function bccCategory(eventTypes, primaryType) {
-  const types = [...(eventTypes || []), primaryType || ""]
-    .map(t => (t || "").toLowerCase().trim())
-    .filter(Boolean);
-
-  for (const t of types) {
-    if (BCC_CAT_MAP[t]) return BCC_CAT_MAP[t];
-    // Partial match for compound types
-    for (const [key, cat] of Object.entries(BCC_CAT_MAP)) {
-      if (t.includes(key)) return cat;
-    }
-  }
-  return null; // No match — fall back to keyword detection
-}
-
 // Non-category BCC tags — pricing/editorial info, not real categories
 const BCC_IGNORE = new Set(["free", "featured"]);
 

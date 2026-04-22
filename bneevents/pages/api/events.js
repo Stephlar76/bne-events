@@ -101,9 +101,14 @@ async function fetchBrisbaneCityCouncil(date) {
       const time = timeMatch ? timeMatch[1].toUpperCase() : (startDate ? new Date(startDate).toLocaleTimeString("en-AU", {
         hour: "numeric", minute: "2-digit", hour12: true, timeZone: "Australia/Brisbane"
       }) : "");
-      const costStr = (r.cost || "").toString().toLowerCase();
-      const isFree = costStr.includes("free") || costStr === "0" || costStr === "";
+      const costStr = (r.cost || "").toString().toLowerCase().trim();
+      const isFree = costStr === "" || costStr === "free" || costStr === "0" || costStr.startsWith("free");
       const catText = `${title} ${(r.event_type || []).join(" ")} ${r.primaryeventtype || ""} ${r.description || ""}`;
+
+      // Extract direct booking URL from the bookings HTML field if available
+      const bookingMatch = (r.bookings || "").match(/href="([^"]+)"/);
+      const directUrl = bookingMatch ? bookingMatch[1] : null;
+      const eventUrl = directUrl || r.web_link || "https://www.brisbane.qld.gov.au/whats-on";
 
       return {
         id: `bcc_${Math.random().toString(36).slice(2)}`,
@@ -117,7 +122,7 @@ async function fetchBrisbaneCityCouncil(date) {
         category: detectCategory(catText),
         tags: (r.event_type || []).map(t => t.toLowerCase()).slice(0, 3),
         description: (r.description || "").replace(/<[^>]*>/g, "").slice(0, 350),
-        url: r.web_link || "https://www.brisbane.qld.gov.au/whats-on",
+        url: eventUrl,
         image: r.eventimage || null,
         source: "brisbanecouncil",
         isLive: true,

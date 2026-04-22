@@ -68,15 +68,16 @@ async function fetchTicketmaster(date) {
 }
 
 // ── BRISBANE CITY COUNCIL OPEN DATA ───────────────────────────────────────────
+// 1,002 real Brisbane events — free public API, no key needed
 async function fetchBrisbaneCityCouncil(date) {
   try {
-    // ODSQL syntax for OpenDataSoft - date fields use date() function
-    const nextDay = new Date(date + "T00:00:00+10:00");
-    nextDay.setDate(nextDay.getDate() + 1);
-    const nextDayStr = nextDay.toISOString().slice(0, 10);
-
-    const where = `date_start >= date'${date}' AND date_start < date'${nextDayStr}'`;
-    const url = `https://data.brisbane.qld.gov.au/api/explore/v2.1/catalog/datasets/brisbane-city-council-events/records?limit=100&order_by=date_start&where=${encodeURIComponent(where)}`;
+    // Filter by start_datetime for the given date (UTC offset — BNE is UTC+10)
+    // 2026-04-25 in Brisbane = 2026-04-24T14:00:00Z to 2026-04-25T13:59:59Z
+    const startUTC = `${date}T14:00:00Z`; // midnight AEST previous day UTC
+    const endUTC   = `${date}T13:59:59Z`; // midnight AEST this day UTC
+    // Actually simpler — just use refine on the date portion
+    const where = `start_datetime >= "${date}T00:00:00+10:00" AND start_datetime <= "${date}T23:59:59+10:00"`;
+    const url = `https://data.brisbane.qld.gov.au/api/explore/v2.1/catalog/datasets/brisbane-city-council-events/records?limit=100&order_by=start_datetime&where=${encodeURIComponent(where)}`;
 
     console.log("BCC URL:", url);
     const res = await fetch(url, { headers: { "Accept": "application/json" } });
@@ -93,27 +94,31 @@ async function fetchBrisbaneCityCouncil(date) {
     console.log(`BCC returned ${records.length} records`);
 
     return records.map(r => {
-      const title = r.event_name || r.title || "Brisbane Event";
-      const startDate = r.date_start || "";
-      const time = startDate ? new Date(startDate).toLocaleTimeString("en-AU", {
+      const title = r.subject || "Brisbane Event";
+      const startDate = r.start_datetime || "";
+      // Use the formatted time from the API if available
+      const timeMatch = (r.formatteddatetime || "").match(/(\d+(?::\d+)?(?:am|pm))/i);
+      const time = timeMatch ? timeMatch[1].toUpperCase() : (startDate ? new Date(startDate).toLocaleTimeString("en-AU", {
         hour: "numeric", minute: "2-digit", hour12: true, timeZone: "Australia/Brisbane"
-      }) : "";
+      }) : "");
       const costStr = (r.cost || "").toString().toLowerCase();
       const isFree = costStr.includes("free") || costStr === "0" || costStr === "";
-      const catText = `${title} ${r.category || ""} ${r.description || ""}`;
+      const catText = `${title} ${(r.event_type || []).join(" ")} ${r.primaryeventtype || ""} ${r.description || ""}`;
+
       return {
-        id: `bcc_${r.id || Math.random().toString(36).slice(2)}`,
+        id: `bcc_${Math.random().toString(36).slice(2)}`,
         title,
-        venue: r.venue_name || r.location_name || "Brisbane",
-        suburb: r.suburb || "Brisbane",
-        address: [r.street_address, r.suburb].filter(Boolean).join(", "),
+        venue: r.location || "Brisbane",
+        suburb: "Brisbane",
+        address: r.location || "",
         time,
         price: isFree ? "Free" : (r.cost || "See website"),
         isFree,
         category: detectCategory(catText),
-        tags: (r.category || "").split(",").map(t => t.trim().toLowerCase()).filter(Boolean).slice(0, 3),
+        tags: (r.event_type || []).map(t => t.toLowerCase()).slice(0, 3),
         description: (r.description || "").replace(/<[^>]*>/g, "").slice(0, 350),
-        url: r.url || r.booking_url || "https://www.brisbane.qld.gov.au/whats-on",
+        url: r.web_link || "https://www.brisbane.qld.gov.au/whats-on",
+        image: r.eventimage || null,
         source: "brisbanecouncil",
         isLive: true,
       };

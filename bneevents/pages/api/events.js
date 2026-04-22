@@ -258,8 +258,8 @@ export default async function handler(req, res) {
 
     console.log(`Total: TM=${tmEvents.length} BCC=${bccEvents.length} Live=${liveEvents.length}`);
 
-    const fallback = liveEvents.length < 5 ? getPermanentVenues() : [];
-    const all = dedup([...liveEvents, ...fallback]);
+    const fallback = liveEvents.length < 5 ? [] : [];
+    const all = dedup([...liveEvents]);
 
     return res.status(200).json({
       events: all,
@@ -270,7 +270,7 @@ export default async function handler(req, res) {
         sources: {
           ticketmaster: tmEvents.length,
           brisbanecouncil: bccEvents.length,
-          fallback: fallback.length,
+          fallback: 0,
         }
       }
     });

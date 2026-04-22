@@ -104,6 +104,7 @@ export default function App() {
               {meta.sources.eventbrite>0&&<span className="pill eb">🟡 {meta.sources.eventbrite} Eventbrite</span>}
               {meta.sources.ticketmaster>0&&<span className="pill tm">🔵 {meta.sources.ticketmaster} Ticketmaster</span>}
               {meta.sources.humanitix>0&&<span className="pill hx">🟢 {meta.sources.humanitix} Humanitix</span>}
+              {meta.sources.brisbanecouncil>0&&<span className="pill bcc">🟠 {meta.sources.brisbanecouncil} BCC Events</span>}
               {meta.sources.fallback>0&&<span className="pill fb">⚫ {meta.sources.fallback} local guide</span>}
             </div>
           </div>
@@ -213,6 +214,7 @@ export default function App() {
         .pill.eb{background:rgba(245,230,66,0.12);color:#F5E642}
         .pill.tm{background:rgba(2,108,223,0.15);color:#4CC9F0}
         .pill.hx{background:rgba(0,180,100,0.15);color:#2ECC71}
+        .pill.bcc{background:rgba(255,140,0,0.15);color:#FF9F1C}
         .pill.fb{background:rgba(255,255,255,0.06);color:#777}
         .loading-wrap{padding:20px 16px}
         .loading-text{text-align:center;color:#F5E642;font-size:0.8rem;margin-bottom:12px}

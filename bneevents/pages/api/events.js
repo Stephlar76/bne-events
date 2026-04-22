@@ -105,24 +105,22 @@ async function fetchBrisbaneCityCouncil(date) {
       const isFree = costStr === "" || costStr === "free" || costStr === "0" || costStr.startsWith("free");
       const catText = `${title} ${(r.event_type || []).join(" ")} ${r.primaryeventtype || ""} ${r.description || ""}`;
 
-      // URL logic:
-      // - Paid events with bookings field: extract the external booking URL  
-      // - Free events: use the proper BCC event page URL
-      // BCC web_link contains Trumba embed URL with eventid param
-      // Real event page is at brisbane.qld.gov.au/whats-on-and-events/event/{subject-slug}-{eventid}
+      // Extract eventid from web_link to build the correct direct event page URL
+      // Format: brisbane.qld.gov.au/events/{slug}/{eventid}
       const bookingMatch = (r.bookings || "").match(/href="([^"#][^"]+)"/);
       const externalBookingUrl = bookingMatch ? bookingMatch[1] : null;
-      
-      // Extract eventid from web_link to build direct BCC event page URL
-      const eventIdMatch = (r.web_link || "").match(/eventid%3d(\d+)|eventid=(\d+)/i);
-      const eventId = eventIdMatch ? (eventIdMatch[1] || eventIdMatch[2]) : null;
+
+      const eventIdMatch = (r.web_link || "").match(/eventid(?:%3[Dd]|=)(\d+)/i);
+      const eventId = eventIdMatch ? eventIdMatch[1] : null;
       const slug = title.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "");
-      const bccEventPage = eventId 
-        ? `https://www.brisbane.qld.gov.au/whats-on-and-events/event/${slug}-${eventId}`
+      const bccEventPage = eventId
+        ? `https://www.brisbane.qld.gov.au/events/${slug}/${eventId}`
         : r.web_link || "https://www.brisbane.qld.gov.au/whats-on";
 
-      const eventUrl = (!isFree && externalBookingUrl) 
-        ? externalBookingUrl 
+      // Paid events with external booking → go direct to ticketing site
+      // Free events → go to specific BCC event page (correct date, correct show)
+      const eventUrl = (!isFree && externalBookingUrl)
+        ? externalBookingUrl
         : bccEventPage;
 
       return {

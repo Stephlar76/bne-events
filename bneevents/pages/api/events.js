@@ -68,23 +68,23 @@ async function fetchTicketmaster(date) {
 }
 
 // ── BRISBANE CITY COUNCIL OPEN DATA ───────────────────────────────────────────
-// Free public API — no key needed. Covers Powerhouse, parks, libraries, community events
 async function fetchBrisbaneCityCouncil(date) {
   try {
-    // The BCC OpenDataSoft API — v2.1 format
-    const url = `https://data.brisbane.qld.gov.au/api/explore/v2.1/catalog/datasets/brisbane-city-council-events/records?limit=100&order_by=date_start&refine=date_start:${date.slice(0,7)}&where=date_start%3E%3D%22${date}%22%20AND%20date_start%3C%3D%22${date}T23%3A59%3A59%22`;
+    // ODSQL syntax for OpenDataSoft - date fields use date() function
+    const nextDay = new Date(date + "T00:00:00+10:00");
+    nextDay.setDate(nextDay.getDate() + 1);
+    const nextDayStr = nextDay.toISOString().slice(0, 10);
 
-    console.log("Fetching BCC:", url);
+    const where = `date_start >= date'${date}' AND date_start < date'${nextDayStr}'`;
+    const url = `https://data.brisbane.qld.gov.au/api/explore/v2.1/catalog/datasets/brisbane-city-council-events/records?limit=100&order_by=date_start&where=${encodeURIComponent(where)}`;
 
-    const res = await fetch(url, {
-      headers: { "Accept": "application/json" },
-    });
-
-    console.log("BCC response status:", res.status);
+    console.log("BCC URL:", url);
+    const res = await fetch(url, { headers: { "Accept": "application/json" } });
+    console.log("BCC status:", res.status);
 
     if (!res.ok) {
       const text = await res.text();
-      console.error("BCC error:", res.status, text.slice(0, 200));
+      console.error("BCC error:", res.status, text.slice(0, 300));
       return [];
     }
 
@@ -92,19 +92,15 @@ async function fetchBrisbaneCityCouncil(date) {
     const records = data.results || [];
     console.log(`BCC returned ${records.length} records`);
 
-    if (records.length === 0) return [];
-
     return records.map(r => {
-      // BCC API wraps fields directly in the result object
       const title = r.event_name || r.title || "Brisbane Event";
-      const startDate = r.date_start || r.startdate || "";
+      const startDate = r.date_start || "";
       const time = startDate ? new Date(startDate).toLocaleTimeString("en-AU", {
         hour: "numeric", minute: "2-digit", hour12: true, timeZone: "Australia/Brisbane"
       }) : "";
       const costStr = (r.cost || "").toString().toLowerCase();
       const isFree = costStr.includes("free") || costStr === "0" || costStr === "";
-      const catText = `${title} ${r.category || ""} ${r.event_type || ""} ${r.description || ""}`;
-
+      const catText = `${title} ${r.category || ""} ${r.description || ""}`;
       return {
         id: `bcc_${r.id || Math.random().toString(36).slice(2)}`,
         title,
@@ -115,8 +111,8 @@ async function fetchBrisbaneCityCouncil(date) {
         price: isFree ? "Free" : (r.cost || "See website"),
         isFree,
         category: detectCategory(catText),
-        tags: (r.category || "").split(",").map(t => t.trim().toLowerCase()).filter(t => t.length > 0).slice(0, 3),
-        description: (r.description || r.summary || "").replace(/<[^>]*>/g, "").slice(0, 350),
+        tags: (r.category || "").split(",").map(t => t.trim().toLowerCase()).filter(Boolean).slice(0, 3),
+        description: (r.description || "").replace(/<[^>]*>/g, "").slice(0, 350),
         url: r.url || r.booking_url || "https://www.brisbane.qld.gov.au/whats-on",
         source: "brisbanecouncil",
         isLive: true,

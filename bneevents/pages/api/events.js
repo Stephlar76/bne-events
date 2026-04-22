@@ -8,22 +8,104 @@
 //    - classes-and-workshops-events (skills, crafts, workshops)
 //    - city-hall-events (City Hall specific events)
 
+// ── BCC OFFICIAL CATEGORY MAP ─────────────────────────────────────────────────
+// Complete mapping of ALL 18 BCC event_type values (from API facets)
+// Each value mapped to our app category — no guessing, no gaps
+const BCC_CAT_MAP = {
+  // ── MUSIC ──
+  "music":                              "music",
+  "performing arts":                    "music",
+
+  // ── ARTS ──
+  "art":                                "arts",
+  "creative":                           "arts",
+  "exhibitions":                        "arts",
+  "culture":                            "arts",
+  "aboriginal and torres strait islander": "arts",  // cultural performances & exhibitions
+
+  // ── COMEDY ──
+  "comedy":                             "comedy",
+
+  // ── FOOD ──
+  "food":                               "food",
+  "markets":                            "food",
+
+  // ── OUTDOORS ──
+  // "Fitness & well-being" = active physical events (yoga, zumba, dance fitness, swimming)
+  "fitness & well-being":               "outdoors",
+  "fitness and well-being":             "outdoors",
+  // "Green" = nature, environment, gardening, conservation
+  "green":                              "outdoors",
+
+  // ── SPORTS ──
+  "sport":                              "sports",
+  "sports":                             "sports",
+
+  // ── FAMILY ──
+  "family events":                      "family",
+  "family":                             "family",
+  "children":                           "family",
+
+  // ── COMMUNITY ──
+  // Tours = guided heritage tours, city walks, museum tours
+  "tours":                              "community",
+  "workshops":                          "community",
+  "business":                           "community",
+  "festivals":                          "arts",    // festivals lean arts/culture
+
+  // ── IGNORE — not real categories ──
+  // "Free" = pricing info, not a category → skip
+  // "Featured" = editorial tag, not a category → skip
+};
+
+// Maps BCC event_type array to our category — first match wins
+function bccCategory(eventTypes, primaryType) {
+  const types = [...(eventTypes || []), primaryType || ""]
+    .map(t => (t || "").toLowerCase().trim())
+    .filter(Boolean);
+
+  for (const t of types) {
+    if (BCC_CAT_MAP[t]) return BCC_CAT_MAP[t];
+    // Partial match for compound types
+    for (const [key, cat] of Object.entries(BCC_CAT_MAP)) {
+      if (t.includes(key)) return cat;
+    }
+  }
+  return null; // No match — fall back to keyword detection
+}
+
+// Non-category BCC tags — pricing/editorial info, not real categories
+const BCC_IGNORE = new Set(["free", "featured"]);
+
+// Maps BCC event_type array to our app category — uses official BCC values
+function bccCategory(eventTypes, primaryType) {
+  const types = [...(eventTypes || []), primaryType || ""]
+    .map(t => (t || "").toLowerCase().trim())
+    .filter(t => t && !BCC_IGNORE.has(t));
+  for (const t of types) {
+    if (BCC_CAT_MAP[t]) return BCC_CAT_MAP[t];
+  }
+  return null; // No BCC match — caller falls back to keyword detection
+}
+
+// Strict keyword detection — only used when BCC types give no match
+// Uses whole-word matching to avoid "fitness" matching "unfit"
 const CAT_KEYWORDS = {
-  music: ["music","concert","gig","band","live","jazz","folk","metal","indie","dj","electronic","classical","hip hop","festival","acoustic","blues","country","reggae","punk","rock","choir","orchestra","opera","recital"],
-  arts: ["art","gallery","exhibition","expo","theatre","theater","dance","film","cinema","craft","paint","sculpture","photography","design","fashion","ballet","performance","visual","creative"],
-  food: ["food","drink","wine","beer","cocktail","dining","restaurant","brunch","market","tasting","chef","cooking","coffee","brewery","gin","whiskey","distillery","farmers","culinary"],
-  outdoors: ["hike","walk","run","cycle","bike","kayak","nature","park","outdoor","trail","climb","swim","surf","adventure","fitness","yoga","meditation","wellness","bootcamp","beach","parkrun","garden","botanic"],
-  comedy: ["comedy","stand-up","standup","improv","laugh","humour","comedian","comic","trivia","quiz"],
-  sports: ["sport","football","rugby","cricket","basketball","tennis","golf","soccer","netball","athletics","swimming","boxing","ufc","nrl","afl","volleyball","triathlon","marathon"],
-  community: ["meetup","networking","social","community","volunteer","charity","fundraiser","workshop","seminar","talk","lecture","language","board game","trivia","quiz","book club","speed dating","karaoke","escape room","library","storytime","reading","writing","knitting","sewing","craft"],
-  nightlife: ["nightclub","club","bar","pub","karaoke","party","rave","dj night","dance night","rooftop","lounge"],
-  family: ["family","kids","children","toddler","baby","school holiday","junior","youth","storytime","playground"],
+  music:     /\b(music|concert|gig|band|live act|jazz|folk|metal|indie|dj set|electronic|classical|hip.?hop|festival|acoustic|blues|country|reggae|punk|rock|choir|orchestra|opera|recital)\b/i,
+  arts:      /\b(gallery|exhibition|expo|theatre|theater|ballet|sculpture|photography|visual art|mural|installation)\b/i,
+  food:      /\b(food|wine|beer|cocktail|dining|brunch|tasting|chef|cooking class|brewery|distillery|farmers market|culinary)\b/i,
+  outdoors:  /\b(hike|hiking|bushwalk|kayak|nature walk|trail|rock climb|parkrun|botanical|gardening)\b/i,
+  comedy:    /\b(comedy|stand.?up|improv|comedian|comic)\b/i,
+  sports:    /\b(football|rugby|cricket|basketball|tennis|golf|soccer|netball|athletics|swimming|boxing|nrl|afl|volleyball|triathlon|marathon)\b/i,
+  community: /\b(meetup|networking|seminar|workshop|lecture|language exchange|book club|karaoke|storytime|reading group|writing group|volunteering|fundraiser)\b/i,
+  nightlife: /\b(nightclub|dj night|dance night|rooftop bar|pub crawl)\b/i,
+  family:    /\b(family|kids|children|toddler|baby|school holiday|junior|youth|storytime)\b/i,
 };
 
 function detectCategory(text) {
-  const t = (text || "").toLowerCase();
-  for (const [cat, keywords] of Object.entries(CAT_KEYWORDS)) {
-    if (keywords.some(k => t.includes(k))) return cat;
+  const t = text || "";
+  for (const [cat, regex] of Object.entries(CAT_KEYWORDS)) {
+    if (regex.test(t)) return cat;
   }
   return "other";
 }
@@ -79,7 +161,15 @@ async function fetchTicketmaster(date) {
 // ── BCC DATASET FETCHER (reusable for all BCC datasets) ───────────────────────
 async function fetchBCCDataset(datasetId, date) {
   try {
-    const where = `start_datetime >= "${date}T00:00:00+10:00" AND start_datetime <= "${date}T23:59:59+10:00"`;
+    // BCC stores datetimes in UTC. Brisbane is UTC+10, no daylight saving.
+    // So "2026-04-24" in Brisbane = 2026-04-23T14:00:00Z to 2026-04-24T13:59:59Z
+    const startUTC = `${date}T14:00:00Z`; // previous day 2pm UTC = midnight Brisbane
+    // Calculate the next day for end boundary
+    const d = new Date(`${date}T14:00:00Z`);
+    d.setUTCDate(d.getUTCDate() + 1);
+    const endUTC = d.toISOString().replace(".000Z", "Z"); // next day 2pm UTC = midnight next day Brisbane
+
+    const where = `start_datetime >= "${startUTC}" AND start_datetime < "${endUTC}"`;
     const url = `https://data.brisbane.qld.gov.au/api/explore/v2.1/catalog/datasets/${datasetId}/records?limit=100&order_by=start_datetime&where=${encodeURIComponent(where)}`;
     const res = await fetch(url, { headers: { "Accept": "application/json" } });
     if (!res.ok) {
@@ -129,8 +219,7 @@ function mapBCCRecord(r, datasetId) {
   const costStr = (r.cost || "").toString().toLowerCase().trim();
   const isFree = costStr === "" || costStr === "free" || costStr === "0" || costStr.startsWith("free");
   const catText = `${title} ${(r.event_type || []).join(" ")} ${r.primaryeventtype || ""} ${r.activitytype || ""} ${r.description || ""}`;
-
-  // Detect if event is evening (6pm+) — used to show under nightlife filter too
+  const category = bccCategory(r.event_type, r.primaryeventtype) || detectCategory(catText);
   const isEvening = isEveningTime(time);
 
   // Extract external booking URL from bookings HTML
@@ -146,8 +235,6 @@ function mapBCCRecord(r, datasetId) {
     : "https://www.brisbane.qld.gov.au/whats-on";
 
   const eventUrl = (!isFree && externalBookingUrl) ? externalBookingUrl : bccEventPage;
-
-  const category = detectCategory(catText);
 
   return {
     id: `bcc_${datasetId}_${eventId || Math.random().toString(36).slice(2)}`,

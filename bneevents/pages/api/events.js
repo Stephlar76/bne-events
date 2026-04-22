@@ -238,72 +238,75 @@ async function fetchHumanitix(date) {
   }
 }
 
-// ── BRISBANE CITY COUNCIL OPEN DATA (free, no key needed) ─────────────────────
-// Covers: Powerhouse, Creative, Music, Botanic Gardens, Workshops, Business events
+// ── BRISBANE CITY COUNCIL via Trumba JSON feeds (free, no key needed) ──────────
+// BCC publishes all their events via Trumba calendar JSON feeds — completely open
 async function fetchBrisbaneCityCouncil(date) {
   try {
-    const datasets = [
-      "brisbane-city-council-events",
-      "brisbane-powerhouse-events",
-      "creative-events",
-      "music-events",
+    // Trumba calendar names for Brisbane City Council
+    const calendars = [
+      "brisbane-city-council",          // Master feed — all BCC events
+      "brisbane-powerhouse",            // Brisbane Powerhouse
     ];
 
-    const BASE = "https://data.brisbane.qld.gov.au/api/explore/v2.1/catalog/datasets";
+    const dateObj = new Date(date + "T00:00:00+10:00");
+    const endDateObj = new Date(date + "T23:59:59+10:00");
 
+    // Trumba JSON feed with date filtering
     const results = await Promise.allSettled(
-      datasets.map(ds =>
-        fetch(`${BASE}/${ds}/records?limit=100&order_by=date_start&where=date_start%3E%3D%22${date}%22%20AND%20date_start%3C%3D%22${date}T23%3A59%3A59%22`, {
-          headers: { "Accept": "application/json" },
-          next: { revalidate: 3600 },
-        }).then(r => r.ok ? r.json() : { results: [] })
+      calendars.map(cal =>
+        fetch(
+          `https://www.trumba.com/calendars/${cal}.json?startdate=${date}&enddate=${date}&rowcount=100`,
+          { next: { revalidate: 3600 } }
+        ).then(r => r.ok ? r.json() : [])
       )
     );
 
-    const allRecords = [];
+    const allEvents = [];
     results.forEach(r => {
-      if (r.status === "fulfilled" && r.value?.results) {
-        allRecords.push(...r.value.results);
+      if (r.status === "fulfilled" && Array.isArray(r.value)) {
+        allEvents.push(...r.value);
       }
     });
 
-    // Deduplicate by title
+    if (allEvents.length === 0) return [];
+
+    // Deduplicate
     const seen = new Set();
-    const unique = allRecords.filter(r => {
-      const key = (r.event_name || r.title || "").toLowerCase().slice(0, 30);
-      if (seen.has(key)) return false;
-      seen.add(key);
-      return true;
-    });
+    return allEvents
+      .filter(e => {
+        const key = (e.title || "").toLowerCase().slice(0, 30);
+        if (seen.has(key)) return false;
+        seen.add(key);
+        return true;
+      })
+      .map(e => {
+        const startStr = e.startDateTime || e.startDate || "";
+        const time = startStr ? new Date(startStr).toLocaleTimeString("en-AU", {
+          hour: "numeric", minute: "2-digit", hour12: true, timeZone: "Australia/Brisbane"
+        }) : "";
+        const costStr = (e.cost || e.price || "").toString().toLowerCase();
+        const isFree = costStr.includes("free") || costStr === "0" || costStr === "";
+        const price = isFree ? "Free" : (e.cost || e.price || "See website");
+        const catText = `${e.title || ""} ${e.description || ""} ${(e.categoryNames || []).join(" ")}`;
 
-    return unique.map(e => {
-      const title = e.event_name || e.title || "Brisbane Event";
-      const startDate = e.date_start || e.startdate || "";
-      const time = startDate ? new Date(startDate).toLocaleTimeString("en-AU", {
-        hour: "numeric", minute: "2-digit", hour12: true, timeZone: "Australia/Brisbane"
-      }) : "";
-      const isFree = (e.cost || "").toLowerCase().includes("free") || e.cost === "0" || e.is_free;
-      const price = isFree ? "Free" : (e.cost || e.price || "See website");
-      const catText = `${title} ${e.category || ""} ${e.event_type || ""} ${e.description || ""}`;
-
-      return {
-        id: `bcc_${e.id || Math.random().toString(36).slice(2)}`,
-        title,
-        venue: e.venue_name || e.location || "Brisbane",
-        suburb: e.suburb || e.location_suburb || "Brisbane",
-        address: [e.street_address, e.suburb].filter(Boolean).join(", "),
-        time,
-        price,
-        isFree: !!isFree,
-        category: detectCategory(catText),
-        tags: [e.category, e.event_type].filter(Boolean).map(t => t.toLowerCase()),
-        description: (e.description || e.summary || "").slice(0, 350),
-        url: e.url || e.booking_url || e.website || "https://www.brisbane.qld.gov.au/whats-on",
-        image: e.image || null,
-        source: "brisbanecouncil",
-        isLive: true,
-      };
-    });
+        return {
+          id: `bcc_${e.id || e.eventId || Math.random().toString(36).slice(2)}`,
+          title: e.title || "Brisbane Event",
+          venue: e.locationName || e.venueName || "Brisbane",
+          suburb: e.suburb || e.city || "Brisbane",
+          address: e.address || e.locationAddress || "",
+          time,
+          price,
+          isFree,
+          category: detectCategory(catText),
+          tags: (e.categoryNames || []).map(t => t.toLowerCase()).slice(0, 3),
+          description: (e.description || "").replace(/<[^>]*>/g, "").slice(0, 350),
+          url: e.url || e.eventUrl || "https://www.brisbane.qld.gov.au/whats-on",
+          image: e.imageSrc || null,
+          source: "brisbanecouncil",
+          isLive: true,
+        };
+      });
   } catch (err) {
     console.error("Brisbane Council fetch error:", err);
     return [];

@@ -336,6 +336,7 @@ export default async function handler(req, res) {
     const fallback = liveEvents.length < 5 ? [] : [];
     const all = dedup([...liveEvents]);
 
+    res.setHeader("Cache-Control", "no-store, max-age=0");
     return res.status(200).json({
       events: all,
       meta: {

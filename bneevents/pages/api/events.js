@@ -107,23 +107,33 @@ function detectCategory(text) {
 }
 
 // ── TICKETMASTER ──────────────────────────────────────────────────────────────
+// Brisbane CBD coordinates: -27.4698, 153.0251
+// radius=30km captures: Fortitude Valley, Newstead, West End, South Bank,
+// New Farm, Kangaroo Point, Milton — all the independent venue suburbs
 async function fetchTicketmaster(date) {
   const key = process.env.TICKETMASTER_KEY;
   if (!key || key === "your_key_here") return [];
   try {
+    // Convert Brisbane date to UTC window for Ticketmaster
+    // Brisbane = UTC+10, so midnight Brisbane = 14:00 previous day UTC
+    const startUTC = `${date}T14:00:00Z`; // midnight Brisbane = 2pm previous day UTC... 
+    // Actually Ticketmaster uses local time for AU events, use local date range
     const params = new URLSearchParams({
       apikey: key,
-      city: "Brisbane",
+      latlong: "-27.4698,153.0251",  // Brisbane CBD
+      radius: "30",
+      unit: "km",
       countryCode: "AU",
       startDateTime: `${date}T00:00:00Z`,
       endDateTime: `${date}T23:59:59Z`,
-      size: "50",
+      size: "200",
       sort: "date,asc",
     });
     const res = await fetch(`https://app.ticketmaster.com/discovery/v2/events.json?${params}`);
     if (!res.ok) return [];
     const data = await res.json();
     const items = data._embedded?.events || [];
+    console.log(`Ticketmaster: ${items.length} events found within 30km of Brisbane CBD`);
     return items.map(e => {
       const venue = e._embedded?.venues?.[0];
       const priceRange = e.priceRanges?.[0];

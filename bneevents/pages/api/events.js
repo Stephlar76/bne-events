@@ -194,25 +194,30 @@ function isEveningTime(timeStr) {
 }
 function parseBCCTime(r) {
   // formatteddatetime examples:
-  // "Thursday, 23 April 2026, 10am - 2:30pm"     ← start has am/pm ✅
-  // "Saturday, 25 April 2026, 7:30pm"             ← single time ✅
-  // "Friday, 24 April 2026, 9:30 - 10:30am"      ← start has NO am/pm, use UTC fallback
+  // "Thursday, 23 April 2026, 10am - 2:30pm"  ← has time ✅
+  // "Saturday, 25 April 2026, 7:30pm"          ← has time ✅
+  // "Friday, 24 April 2026, 9:30 - 10:30am"   ← start has no am/pm, use UTC
+  // "Friday, 24 April 2026"                    ← date only = all-day event, show nothing
   const fmt = r.formatteddatetime || "";
 
   if (fmt) {
     const timePart = fmt.split(",").pop().trim();
-    // Only use formatteddatetime if the FIRST time token has am/pm
-    // e.g. "10am - 2:30pm" → first token "10am" has am/pm ✅
-    // e.g. "9:30 - 10:30am" → first token "9:30" has no am/pm → skip, use UTC
-    const firstTime = timePart.match(/^(\d+(?::\d+)?)\s*(am|pm)?/i);
-    if (firstTime && firstTime[2]) {
-      // Start time has am/pm — reliable, use it
+
+    // If timePart is just a year (e.g. "2026") or has no digits with am/pm
+    // this is a date-only entry = all-day event
+    if (!timePart.match(/am|pm/i) && !timePart.match(/^\d+:\d+/)) {
+      return ""; // All-day event — show no time
+    }
+
+    // Start time has am/pm — use it directly
+    const firstTime = timePart.match(/^(\d+(?::\d+)?)\s*(am|pm)/i);
+    if (firstTime) {
       return (firstTime[1] + firstTime[2]).toUpperCase();
     }
-    // Start time has no am/pm — fall through to UTC parse
+    // Start time has no am/pm (e.g. "9:30 - 10:30am") — fall through to UTC
   }
 
-  // UTC fallback — always correct since BCC stores in UTC and Brisbane = UTC+10
+  // UTC fallback — reliable since BCC stores in UTC, Brisbane = UTC+10
   const startDate = r.start_datetime || "";
   if (!startDate) return "";
   try {

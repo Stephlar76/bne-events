@@ -26,9 +26,11 @@ const BCC_CAT_MAP = {
   // ── COMEDY ──
   "comedy":                             "comedy",
 
-  // ── FOOD ──
+  // ── FOOD (pure — restaurants, bars, food festivals only) ──
   "food":                               "food",
-  "markets":                            "food",
+
+  // ── MARKETS (separate category — craft, farmers, art, Christmas markets) ──
+  "markets":                            "markets",
 
   // ── OUTDOORS ──
   // "Fitness & well-being" = active physical events (yoga, zumba, dance fitness, swimming)
@@ -77,7 +79,8 @@ function bccCategory(eventTypes, primaryType) {
 const CAT_KEYWORDS = {
   music:     /\b(music|concert|gig|band|live act|jazz|folk|metal|indie|dj set|electronic|classical|hip.?hop|festival|acoustic|blues|country|reggae|punk|rock|choir|orchestra|opera|recital)\b/i,
   arts:      /\b(gallery|exhibition|expo|theatre|theater|ballet|sculpture|photography|visual art|mural|installation)\b/i,
-  food:      /\b(food|wine|beer|cocktail|dining|brunch|tasting|chef|cooking class|brewery|distillery|farmers market|culinary)\b/i,
+  markets:   /\b(market|markets|bazaar|fair|fete|stall|stallholder|craft fair|artisan fair|night market|sunday market|saturday market|farmers market|pop.?up market)\b/i,
+  food:      /\b(restaurant|bar|pub|wine|beer|cocktail|dining|brunch|tasting|chef|cooking class|brewery|distillery|culinary|eat street|food truck|food festival)\b/i,
   outdoors:  /\b(hike|hiking|bushwalk|kayak|nature walk|trail|rock climb|parkrun|botanical|gardening)\b/i,
   comedy:    /\b(comedy|stand.?up|improv|comedian|comic)\b/i,
   sports:    /\b(football|rugby|cricket|basketball|tennis|golf|soccer|netball|athletics|swimming|boxing|nrl|afl|volleyball|triathlon|marathon)\b/i,
@@ -249,36 +252,6 @@ async function fetchBrisbaneCityCouncil(date) {
   // Using sub-datasets in parallel was causing Vercel timeout on free tier.
   const records = await fetchBCCDataset("brisbane-city-council-events", date);
   return records.map(r => mapBCCRecord(r, "brisbane-city-council-events"));
-}
-
-// ── PERMANENT VENUES (shown when real data is sparse) ────────────────────────
-// These are real Brisbane venues that ALWAYS have events — we link to their
-// events pages directly. No fake events, just real venue discovery.
-function getPermanentVenues() {
-  return [
-    // MUSIC
-    { id:"pv_1", cat:"music", title:"What's On — The Triffid", venue:"The Triffid", suburb:"Newstead", time:"", price:"Various", isFree:false, tags:["live music","indie"], url:"https://thetriffid.com.au/whats-on/", source:"fallback", isLive:false, description:"Brisbane's home for live music in a converted WW2 hangar. Check their events page for upcoming gigs." },
-    { id:"pv_2", cat:"music", title:"What's On — Fortitude Music Hall", venue:"Fortitude Music Hall", suburb:"Fortitude Valley", time:"", price:"Various", isFree:false, tags:["live music","concert"], url:"https://fortitudemusichall.com/whats-on/", source:"fallback", isLive:false, description:"Brisbane's grandest live music venue. Check their calendar for upcoming concerts." },
-    { id:"pv_3", cat:"music", title:"What's On — The Zoo", venue:"The Zoo", suburb:"Fortitude Valley", time:"", price:"Various", isFree:false, tags:["live music","indie"], url:"https://thezoo.com.au/whats-on/", source:"fallback", isLive:false, description:"Iconic Brisbane live music pub. Always something happening — check their full calendar." },
-    { id:"pv_4", cat:"music", title:"What's On — The Tivoli", venue:"The Tivoli", suburb:"Fortitude Valley", time:"", price:"Various", isFree:false, tags:["live music","concert"], url:"https://thetivoli.com.au/events/", source:"fallback", isLive:false, description:"One of Brisbane's most loved live music venues. See the full upcoming event schedule." },
-    // ARTS
-    { id:"pv_5", cat:"arts", title:"What's On — Brisbane Powerhouse", venue:"Brisbane Powerhouse", suburb:"New Farm", time:"", price:"Various", isFree:false, tags:["theatre","arts","comedy"], url:"https://brisbanepowerhouse.org/events/", source:"fallback", isLive:false, description:"Queensland's home for contemporary culture. Theatre, comedy, music, festivals and more." },
-    { id:"pv_6", cat:"arts", title:"What's On — QPAC", venue:"QPAC", suburb:"South Brisbane", time:"", price:"Various", isFree:false, tags:["theatre","dance","opera"], url:"https://qpac.com.au/whats-on", source:"fallback", isLive:false, description:"Queensland's premier performing arts centre. Opera, ballet, theatre and major productions." },
-    { id:"pv_7", cat:"arts", title:"What's On — GOMA", venue:"Gallery of Modern Art", suburb:"South Brisbane", time:"10:00 AM", price:"Free", isFree:true, tags:["gallery","exhibition","free"], url:"https://www.qagoma.qld.gov.au/whats-on", source:"fallback", isLive:false, description:"World-class art gallery. Free entry to the permanent collection. Special exhibitions vary." },
-    // COMEDY
-    { id:"pv_8", cat:"comedy", title:"What's On — Sit Down Comedy Club", venue:"Sit Down Comedy Club", suburb:"Fortitude Valley", time:"7:30 PM", price:"Various", isFree:false, tags:["comedy","stand-up"], url:"https://sitdowncomedy.com.au", source:"fallback", isLive:false, description:"Brisbane's dedicated comedy club. Weekly shows from local and touring comedians." },
-    // NIGHTLIFE
-    { id:"pv_9", cat:"nightlife", title:"What's On — Cloudland", venue:"Cloudland", suburb:"Fortitude Valley", time:"9:00 PM", price:"Various", isFree:false, tags:["nightclub","dancing"], url:"https://cloudland.com.au/events/", source:"fallback", isLive:false, description:"Brisbane's most iconic nightclub. Multiple rooms, rooftop, world-class DJs. Check their events." },
-    { id:"pv_10", cat:"nightlife", title:"What's On — The Wickham", venue:"The Wickham Hotel", suburb:"Fortitude Valley", time:"", price:"Various", isFree:false, tags:["lgbtq+","bar","nightlife"], url:"https://thewickham.com.au/whats-on/", source:"fallback", isLive:false, description:"Brisbane's iconic LGBTQ+ venue. Drag shows, DJ nights, rooftop bar events." },
-    // FOOD
-    { id:"pv_11", cat:"food", title:"West End Markets — Every Saturday", venue:"Davies Park", suburb:"West End", time:"6:00 AM", price:"Free entry", isFree:true, tags:["markets","food","weekly"], url:"https://westendmarket.com.au", source:"fallback", isLive:false, description:"Every Saturday 6am–2pm. 150+ vendors, fresh produce, street food, live music. Free entry." },
-    { id:"pv_12", cat:"food", title:"Jan Powers Farmers Markets — Powerhouse", venue:"Brisbane Powerhouse", suburb:"New Farm", time:"6:00 AM", price:"Free entry", isFree:true, tags:["markets","farmers","weekly"], url:"https://janpowersfarmersmarkets.com.au", source:"fallback", isLive:false, description:"Every Saturday morning. Brisbane's best farmers market with artisan produce and food stalls." },
-    // OUTDOORS
-    { id:"pv_13", cat:"outdoors", title:"Parkrun — Every Saturday 7am", venue:"South Bank Parklands", suburb:"South Bank", time:"7:00 AM", price:"Free", isFree:true, tags:["running","parkrun","free"], url:"https://www.parkrun.com.au/brisbane/", source:"fallback", isLive:false, description:"Free 5km timed run every Saturday at 7am. All paces welcome. Register free at parkrun.com.au." },
-    // COMMUNITY
-    { id:"pv_14", cat:"community", title:"What's On — River City Labs", venue:"River City Labs", suburb:"Fortitude Valley", time:"", price:"Various", isFree:false, tags:["tech","networking","startup"], url:"https://rivercitylabs.net/events/", source:"fallback", isLive:false, description:"Brisbane's leading startup hub. Tech meetups, networking events, workshops and more." },
-    { id:"pv_15", cat:"community", title:"Brisbane Meetup Events", venue:"Various Brisbane Venues", suburb:"Brisbane", time:"", price:"Various", isFree:true, tags:["meetup","social","community"], url:"https://www.meetup.com/find/au--brisbane/", source:"fallback", isLive:false, description:"Hundreds of Brisbane Meetup groups — hiking, language exchange, board games, tech, trivia and more." },
-  ];
 }
 
 function dedup(arr) {

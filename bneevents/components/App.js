@@ -194,26 +194,37 @@ function getParkrunEvents(date) {
     isLive: true,
   }));
 }
+function getDOW(s) { return new Date(s+"T12:00:00").toLocaleDateString("en-AU",{weekday:"long"}); }
 function getFmt(s) { return new Date(s+"T12:00:00").toLocaleDateString("en-AU",{day:"numeric",month:"long",year:"numeric"}); }
 function todayStr() { const d=new Date(); return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}-${String(d.getDate()).padStart(2,"0")}`; }
 
 export default function App() {
+  // ── ALL STATE HOOKS FIRST ─────────────────────────────────────────────────
   const [date, setDate] = useState(todayStr());
   const [events, setEvents] = useState([]);
   const [filter, setFilter] = useState("all");
-  const [view, setView] = useState("events"); // "events" | "venues" | "activities"
+  const [view, setView] = useState("events");
   const [actLocation, setActLocation] = useState("brisbane");
   const [openSubcats, setOpenSubcats] = useState([]);
   const [openTypes, setOpenTypes] = useState([]);
   const [openCats, setOpenCats] = useState([]);
+  const [appStatus, setAppStatus] = useState("idle");
+  const [meta, setMeta] = useState(null);
+  const [expandedId, setExpandedId] = useState(null);
+  const [showModal, setShowModal] = useState(false);
+  const [community, setCommunity] = useState([]);
+  const [form, setForm] = useState({ name:"", date:"", time:"", venue:"", cat:"community", price:"free", link:"", desc:"" });
 
+  // ── ALL EFFECTS NEXT ──────────────────────────────────────────────────────
   useEffect(() => {
     try {
       setOpenSubcats(JSON.parse(localStorage.getItem("bne_open_subcats")||"[]"));
       setOpenTypes(JSON.parse(localStorage.getItem("bne_open_types")||"[]"));
+      setCommunity(JSON.parse(localStorage.getItem("bne_community")||"[]"));
     } catch {}
   }, []);
 
+  // ── ALL FUNCTIONS AFTER HOOKS ─────────────────────────────────────────────
   function toggleSubcat(id) {
     setOpenSubcats(prev => {
       const next = prev.includes(id) ? prev.filter(x=>x!==id) : [...prev, id];
@@ -232,16 +243,6 @@ export default function App() {
   function toggleCat(cat) {
     setOpenCats(prev => prev.includes(cat) ? prev.filter(x=>x!==cat) : [...prev, cat]);
   }
-  const [appStatus, setAppStatus] = useState("idle");
-  const [meta, setMeta] = useState(null);
-  const [expandedId, setExpandedId] = useState(null);
-  const [showModal, setShowModal] = useState(false);
-  const [community, setCommunity] = useState([]);
-  const [form, setForm] = useState({ name:"", date:"", time:"", venue:"", cat:"community", price:"free", link:"", desc:"" });
-
-  useEffect(() => {
-    try { setCommunity(JSON.parse(localStorage.getItem("bne_community")||"[]")); } catch {}
-  }, []);
 
   // Filter logic — nightlife includes evening music/arts/comedy
   const filtered = (() => {

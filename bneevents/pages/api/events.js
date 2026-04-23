@@ -64,14 +64,23 @@ const BCC_CAT_MAP = {
 const BCC_IGNORE = new Set(["free", "featured"]);
 
 // Maps BCC event_type array to our app category — uses official BCC values
+// Markets takes priority over Food since an event can have both tags
+const PRIORITY_ORDER = ["markets", "music", "arts", "comedy", "sports", "family", "nightlife", "outdoors", "community", "food"];
+
 function bccCategory(eventTypes, primaryType) {
   const types = [...(eventTypes || []), primaryType || ""]
     .map(t => (t || "").toLowerCase().trim())
     .filter(t => t && !BCC_IGNORE.has(t));
-  for (const t of types) {
-    if (BCC_CAT_MAP[t]) return BCC_CAT_MAP[t];
+
+  // Get all matched categories
+  const matched = types.map(t => BCC_CAT_MAP[t]).filter(Boolean);
+  if (matched.length === 0) return null;
+
+  // Return highest priority match
+  for (const cat of PRIORITY_ORDER) {
+    if (matched.includes(cat)) return cat;
   }
-  return null; // No BCC match — caller falls back to keyword detection
+  return matched[0];
 }
 
 // Strict keyword detection — only used when BCC types give no match

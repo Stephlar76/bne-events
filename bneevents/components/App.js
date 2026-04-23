@@ -203,44 +203,38 @@ export default function App() {
   const [filter, setFilter] = useState("all");
   const [view, setView] = useState("events"); // "events" | "venues" | "activities"
   const [actLocation, setActLocation] = useState("brisbane");
-  // openSubcats: Set of subcat ids that are open — persisted in localStorage
-  // openTypes: Set of "subcatId/typeId" strings that are open
-  const [openSubcats, setOpenSubcats] = useState(() => {
-    try { return new Set(JSON.parse(localStorage.getItem("bne_open_subcats")||"[]")); } catch { return new Set(); }
-  });
-  const [openTypes, setOpenTypes] = useState(() => {
-    try { return new Set(JSON.parse(localStorage.getItem("bne_open_types")||"[]")); } catch { return new Set(); }
-  });
+  const [openSubcats, setOpenSubcats] = useState([]);
+  const [openTypes, setOpenTypes] = useState([]);
+  const [openCats, setOpenCats] = useState([]);
+
+  useEffect(() => {
+    try {
+      setOpenSubcats(JSON.parse(localStorage.getItem("bne_open_subcats")||"[]"));
+      setOpenTypes(JSON.parse(localStorage.getItem("bne_open_types")||"[]"));
+    } catch {}
+  }, []);
 
   function toggleSubcat(id) {
     setOpenSubcats(prev => {
-      const next = new Set(prev);
-      next.has(id) ? next.delete(id) : next.add(id);
-      try { localStorage.setItem("bne_open_subcats", JSON.stringify([...next])); } catch {}
+      const next = prev.includes(id) ? prev.filter(x=>x!==id) : [...prev, id];
+      try { localStorage.setItem("bne_open_subcats", JSON.stringify(next)); } catch {}
       return next;
     });
   }
   function toggleType(subcatId, typeId) {
     const key = `${subcatId}/${typeId}`;
     setOpenTypes(prev => {
-      const next = new Set(prev);
-      next.has(key) ? next.delete(key) : next.add(key);
-      try { localStorage.setItem("bne_open_types", JSON.stringify([...next])); } catch {}
+      const next = prev.includes(key) ? prev.filter(x=>x!==key) : [...prev, key];
+      try { localStorage.setItem("bne_open_types", JSON.stringify(next)); } catch {}
       return next;
     });
+  }
+  function toggleCat(cat) {
+    setOpenCats(prev => prev.includes(cat) ? prev.filter(x=>x!==cat) : [...prev, cat]);
   }
   const [appStatus, setAppStatus] = useState("idle");
   const [meta, setMeta] = useState(null);
   const [expandedId, setExpandedId] = useState(null);
-  const [openCats, setOpenCats] = useState(new Set()); // which category sections are collapsed
-
-  function toggleCat(cat) {
-    setOpenCats(prev => {
-      const next = new Set(prev);
-      next.has(cat) ? next.delete(cat) : next.add(cat);
-      return next;
-    });
-  }
   const [showModal, setShowModal] = useState(false);
   const [community, setCommunity] = useState([]);
   const [form, setForm] = useState({ name:"", date:"", time:"", venue:"", cat:"community", price:"free", link:"", desc:"" });
@@ -408,7 +402,7 @@ export default function App() {
                 {filter!=="all"
                   ?filtered.map((e,i)=><EventCard key={e.id} e={e} expanded={expandedId===e.id} onToggle={()=>setExpandedId(expandedId===e.id?null:e.id)} delay={i*35}/>)
                   :grouped().map(({cat,evts})=>{
-                  const isCollapsed = openCats.has(cat);
+                  const isCollapsed = openCats.includes(cat);
                   return (
                     <div key={cat}>
                       <button className="section-header" onClick={()=>toggleCat(cat)}>
@@ -464,7 +458,7 @@ export default function App() {
             </div>
 
             {ACTIVITIES[actLocation].map(subcat=>{
-              const isSubOpen = openSubcats.has(subcat.id);
+              const isSubOpen = openSubcats.includes(subcat.id);
               return (
                 <div key={subcat.id} className="act-subcat">
                   {/* Level 1 — Subcat header (Fitness / Adventure / Experiences) */}
@@ -475,7 +469,7 @@ export default function App() {
 
                   {isSubOpen&&subcat.types.map(typeGroup=>{
                     const typeKey = `${subcat.id}/${typeGroup.id}`;
-                    const isTypeOpen = openTypes.has(typeKey);
+                    const isTypeOpen = openTypes.includes(typeKey);
                     return (
                       <div key={typeGroup.id} className="act-type">
                         {/* Level 2 — Type header (Run / Yoga / Climbing etc) */}

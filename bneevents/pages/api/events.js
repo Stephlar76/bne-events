@@ -272,12 +272,18 @@ function mapBCCRecord(r, datasetId) {
 
 // ── ALL BCC SOURCES ───────────────────────────────────────────────────────────
 async function fetchBrisbaneCityCouncil(date) {
-  // The master dataset already includes ALL sub-categories:
-  // creative, parks, libraries, active & healthy, botanic gardens, powerhouse,
-  // business events, workshops, city hall — everything in one call.
-  // Using sub-datasets in parallel was causing Vercel timeout on free tier.
+  // Master dataset covers: creative, parks, libraries, active & healthy,
+  // botanic gardens, powerhouse, business events, workshops, city hall
   const records = await fetchBCCDataset("brisbane-city-council-events", date);
   return records.map(r => mapBCCRecord(r, "brisbane-city-council-events"));
+}
+
+async function fetchRiverstage(date) {
+  // Riverstage is a SEPARATE BCC dataset — not included in master
+  // Confirmed working: 17 events returned, same field structure as master
+  // Safe to run as 3rd parallel call alongside TM + BCC master
+  const records = await fetchBCCDataset("riverstage-events", date);
+  return records.map(r => mapBCCRecord(r, "riverstage-events"));
 }
 
 function dedup(arr) {
@@ -297,30 +303,31 @@ export default async function handler(req, res) {
   if (!date || !/^\d{4}-\d{2}-\d{2}$/.test(date)) return res.status(400).json({ error: "Invalid date" });
 
   try {
-    const [tmResult, bccResult] = await Promise.allSettled([
+    const [tmResult, bccResult, riverstageResult] = await Promise.allSettled([
       fetchTicketmaster(date),
       fetchBrisbaneCityCouncil(date),
+      fetchRiverstage(date),
     ]);
 
-    const tmEvents  = tmResult.status  === "fulfilled" ? tmResult.value  : [];
-    const bccEvents = bccResult.status === "fulfilled" ? bccResult.value : [];
-    const liveEvents = [...tmEvents, ...bccEvents];
+    const tmEvents         = tmResult.status         === "fulfilled" ? tmResult.value         : [];
+    const bccEvents        = bccResult.status        === "fulfilled" ? bccResult.value        : [];
+    const riverstageEvents = riverstageResult.status === "fulfilled" ? riverstageResult.value : [];
 
-    console.log(`Total: TM=${tmEvents.length} BCC=${bccEvents.length} Live=${liveEvents.length}`);
+    // Dedup Riverstage against master BCC (some events may overlap)
+    const liveEvents = dedup([...tmEvents, ...bccEvents, ...riverstageEvents]);
 
-    const fallback = liveEvents.length < 5 ? [] : [];
-    const all = dedup([...liveEvents]);
+    console.log(`Total: TM=${tmEvents.length} BCC=${bccEvents.length} Riverstage=${riverstageEvents.length} Live=${liveEvents.length}`);
 
     res.setHeader("Cache-Control", "no-store, max-age=0");
     return res.status(200).json({
-      events: all,
+      events: liveEvents,
       meta: {
         date,
-        total: all.length,
+        total: liveEvents.length,
         live: liveEvents.length,
         sources: {
           ticketmaster: tmEvents.length,
-          brisbanecouncil: bccEvents.length,
+          brisbanecouncil: bccEvents.length + riverstageEvents.length,
           fallback: 0,
         }
       }

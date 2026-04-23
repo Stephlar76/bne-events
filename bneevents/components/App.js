@@ -1,10 +1,10 @@
 import { useState, useEffect } from "react";
 import Head from "next/head";
 
-const CAT_ICONS = { music:"🎵", arts:"🎨", food:"🍜", outdoors:"🥾", comedy:"😂", sports:"⚽", community:"🤝", nightlife:"🌙", family:"👨‍👩‍👧", other:"📌" };
-const CAT_LABELS = { music:"Music", arts:"Arts & Culture", food:"Food & Drink", outdoors:"Outdoors", comedy:"Comedy", sports:"Sports", community:"Community", nightlife:"Nightlife", family:"Family", other:"Other" };
-const FILTERS = ["all","music","nightlife","arts","comedy","food","community","outdoors","sports","family","free"];
-const SOURCE_COLORS = { ticketmaster:"#026CDF", brisbanecouncil:"#FF9F1C", fallback:"#555", community:"#C77DFF" };
+const CAT_ICONS = { music:"🎵", arts:"🎨", food:"🍽️", markets:"🛒", outdoors:"🥾", comedy:"😂", sports:"⚽", community:"🤝", nightlife:"🌙", family:"👨‍👩‍👧", other:"📌" };
+const CAT_LABELS = { music:"Music", arts:"Arts & Culture", food:"Food & Drink", markets:"Markets", outdoors:"Outdoors", comedy:"Comedy", sports:"Sports", community:"Community", nightlife:"Nightlife", family:"Family", other:"Other" };
+const FILTERS = ["all","music","nightlife","arts","comedy","food","markets","community","outdoors","sports","family","free"];
+const SOURCE_COLORS = { ticketmaster:"#026CDF", brisbanecouncil:"#FF9F1C", parkrun:"#2ECC71", fallback:"#555", community:"#C77DFF" };
 
 // ── CONFIRMED REAL BRISBANE VENUES (all URLs verified working) ────────────────
 const VENUES = [
@@ -25,8 +25,8 @@ const VENUES = [
   // COMEDY
   { id:"v13", cat:"comedy", name:"Sit Down Comedy Club", suburb:"Paddington", type:"Comedy Club", desc:"Brisbane's dedicated stand-up comedy club since 1992. Weekly shows from local and international comedians.", url:"https://www.standup.com.au" },
   // FOOD
-  { id:"v14", cat:"food", name:"West End Markets", suburb:"West End", type:"Weekend Market — Every Saturday", desc:"Every Saturday 6am–2pm at Davies Park. 150+ vendors, fresh produce, street food, live music. Free entry.", url:"https://westendmarket.com.au" },
-  { id:"v15", cat:"food", name:"Jan Powers Farmers Markets", suburb:"New Farm & Manly", type:"Farmers Market — Weekly", desc:"Saturdays at Brisbane Powerhouse (6am–12pm). Also Manly 1st & 3rd Saturday, Eagle Farm every Sunday.", url:"https://www.janpowersfarmersmarkets.com.au" },
+  { id:"v14", cat:"markets", name:"West End Markets", suburb:"West End", type:"Weekend Market — Every Saturday", desc:"Every Saturday 6am–2pm at Davies Park. 150+ vendors, fresh produce, street food, live music. Free entry.", url:"https://westendmarket.com.au" },
+  { id:"v15", cat:"markets", name:"Jan Powers Farmers Markets", suburb:"New Farm & Manly", type:"Farmers Market — Weekly", desc:"Saturdays at Brisbane Powerhouse (6am–12pm). Also Manly 1st & 3rd Saturday, Eagle Farm every Sunday.", url:"https://www.janpowersfarmersmarkets.com.au" },
   { id:"v16", cat:"food", name:"Howard Smith Wharves", suburb:"Brisbane City", type:"Dining & Bar Precinct", desc:"Stunning riverside precinct under the Story Bridge. Bars, restaurants and regular public events.", url:"https://howardsmithwharves.com/whats-on/" },
   // COMMUNITY
   { id:"v19", cat:"community", name:"Brisbane Meetup Groups", suburb:"Various", type:"Social Meetups", desc:"Hundreds of Brisbane Meetup groups — hiking, language exchange, board games, tech, trivia and more.", url:"https://www.meetup.com/find/au--brisbane/" },
@@ -167,7 +167,33 @@ const ACTIVITIES = {
   ]
 };
 
-function getDOW(s) { return new Date(s+"T12:00:00").toLocaleDateString("en-AU",{weekday:"long"}); }
+// ── PARKRUN EVENTS — injected on Saturdays ───────────────────────────────────
+// Every parkrun happens every Saturday at 7am — real events with date + location
+function getParkrunEvents(date) {
+  const dow = new Date(date + "T12:00:00").getDay();
+  if (dow !== 6) return []; // Only Saturday (6)
+  // Pull all parkrun items from the ACTIVITIES data
+  const fitnessSubcat = ACTIVITIES.brisbane.find(s => s.id === "fitness");
+  const runType = fitnessSubcat?.types.find(t => t.id === "run");
+  if (!runType) return [];
+  return runType.items.map(a => ({
+    id: `parkrun_${a.id}`,
+    title: a.name,
+    venue: a.suburb,
+    suburb: a.suburb,
+    address: a.suburb + ", Brisbane",
+    time: "7:00 AM",
+    price: "Free",
+    isFree: true,
+    isEvening: false,
+    category: "outdoors",
+    tags: ["parkrun", "running", "free"],
+    description: a.desc,
+    url: a.url,
+    source: "parkrun",
+    isLive: true,
+  }));
+}
 function getFmt(s) { return new Date(s+"T12:00:00").toLocaleDateString("en-AU",{day:"numeric",month:"long",year:"numeric"}); }
 function todayStr() { const d=new Date(); return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}-${String(d.getDate()).padStart(2,"0")}`; }
 
@@ -206,6 +232,15 @@ export default function App() {
   const [appStatus, setAppStatus] = useState("idle");
   const [meta, setMeta] = useState(null);
   const [expandedId, setExpandedId] = useState(null);
+  const [openCats, setOpenCats] = useState(new Set()); // which category sections are collapsed
+
+  function toggleCat(cat) {
+    setOpenCats(prev => {
+      const next = new Set(prev);
+      next.has(cat) ? next.delete(cat) : next.add(cat);
+      return next;
+    });
+  }
   const [showModal, setShowModal] = useState(false);
   const [community, setCommunity] = useState([]);
   const [form, setForm] = useState({ name:"", date:"", time:"", venue:"", cat:"community", price:"free", link:"", desc:"" });
@@ -235,14 +270,15 @@ export default function App() {
       if (!res.ok) throw new Error("API error");
       const data = await res.json();
       const comm = community.filter(e=>e.date===date).map(e=>({...e,source:"community",isLive:false}));
-      setEvents([...data.events,...comm]);
-      setMeta(data.meta);
+      const parkruns = getParkrunEvents(date);
+      setEvents([...data.events, ...parkruns, ...comm]);
+      setMeta({...data.meta, sources:{...data.meta.sources, parkrun: parkruns.length}});
       setAppStatus("done");
     } catch(err) { setAppStatus("error"); }
   }
 
   function grouped() {
-    const order=["music","nightlife","arts","comedy","food","community","outdoors","sports","family","other"];
+    const order=["music","nightlife","arts","comedy","food","markets","community","outdoors","sports","family","other"];
     const map={};
     filtered.forEach(e=>{const c=e.category||"other";if(!map[c])map[c]=[];map[c].push(e);});
     return order.filter(c=>map[c]?.length).map(c=>({cat:c,evts:map[c]}));
@@ -320,7 +356,7 @@ export default function App() {
                 <div className="stats-sources">
                   {meta.sources.ticketmaster>0&&<span className="pill tm">🔵 {meta.sources.ticketmaster} Ticketmaster</span>}
                   {meta.sources.brisbanecouncil>0&&<span className="pill bcc">🟠 {meta.sources.brisbanecouncil} BCC</span>}
-                  {meta.sources.fallback>0&&<span className="pill fb">📍 {meta.sources.fallback} venue guide</span>}
+                  {meta.sources.parkrun>0&&<span className="pill pr">🟢 {meta.sources.parkrun} Parkrun</span>}
                 </div>
               </div>
             )}
@@ -371,12 +407,21 @@ export default function App() {
               <div className="events-list">
                 {filter!=="all"
                   ?filtered.map((e,i)=><EventCard key={e.id} e={e} expanded={expandedId===e.id} onToggle={()=>setExpandedId(expandedId===e.id?null:e.id)} delay={i*35}/>)
-                  :grouped().map(({cat,evts})=>(
+                  :grouped().map(({cat,evts})=>{
+                  const isCollapsed = openCats.has(cat);
+                  return (
                     <div key={cat}>
-                      <div className="section-header"><span>{CAT_ICONS[cat]} {CAT_LABELS[cat]}</span><div className="divider"/></div>
-                      {evts.map((e,i)=><EventCard key={e.id} e={e} expanded={expandedId===e.id} onToggle={()=>setExpandedId(expandedId===e.id?null:e.id)} delay={i*35}/>)}
+                      <button className="section-header" onClick={()=>toggleCat(cat)}>
+                        <span>{CAT_ICONS[cat]} {CAT_LABELS[cat]}</span>
+                        <span style={{display:"flex",alignItems:"center",gap:6}}>
+                          <span style={{fontSize:"0.6rem",color:"#555"}}>{evts.length}</span>
+                          <span style={{fontSize:"0.6rem",color:"#555"}}>{isCollapsed?"▶":"▼"}</span>
+                        </span>
+                      </button>
+                      {!isCollapsed&&evts.map((e,i)=><EventCard key={e.id} e={e} expanded={expandedId===e.id} onToggle={()=>setExpandedId(expandedId===e.id?null:e.id)} delay={i*35}/>)}
                     </div>
-                  ))
+                  );
+                })
                 }
               </div>
             )}
@@ -536,6 +581,7 @@ export default function App() {
         .pill{font-size:0.62rem;padding:2px 8px;border-radius:10px}
         .pill.tm{background:rgba(2,108,223,0.15);color:#4CC9F0}
         .pill.bcc{background:rgba(255,140,0,0.15);color:#FF9F1C}
+        .pill.pr{background:rgba(46,204,113,0.15);color:#2ECC71}
         .pill.fb{background:rgba(255,255,255,0.06);color:#777}
 
         .loading-wrap{padding:20px 16px}
@@ -556,8 +602,9 @@ export default function App() {
         .switch-btn{margin-top:8px;background:#F5E642;color:#0A0A0A;border:none;border-radius:20px;padding:10px 20px;font-family:inherit;font-weight:700;font-size:0.85rem;cursor:pointer}
 
         .events-list{padding:12px 16px 100px}
-        .section-header{display:flex;align-items:center;gap:8px;padding:16px 0 8px;font-size:0.58rem;text-transform:uppercase;letter-spacing:2px;color:#777}
-        .divider{flex:1;height:1px;background:#252525}
+        .section-header{display:flex;align-items:center;justify-content:space-between;padding:14px 0 8px;font-size:0.58rem;text-transform:uppercase;letter-spacing:2px;color:#777;width:100%;background:none;border:none;cursor:pointer;font-family:inherit;text-align:left}
+        .section-header:active{opacity:0.7}
+        .divider{flex:1;height:1px;background:#252525;margin-left:8px}
 
         /* EVENT CARDS */
         .event-card{background:#181818;border:1px solid #252525;border-radius:14px;padding:14px 14px 14px 18px;margin-bottom:9px;position:relative;overflow:hidden;cursor:pointer;transition:border-color 0.15s,transform 0.1s;animation:fadeUp 0.3s ease both}

@@ -4,7 +4,7 @@ import Head from "next/head";
 const CAT_ICONS = { music:"🎵", arts:"🎨", food:"🍽️", markets:"🛒", outdoors:"🥾", comedy:"😂", sports:"⚽", community:"🤝", nightlife:"🌙", family:"👨‍👩‍👧", other:"📌" };
 const CAT_LABELS = { music:"Music", arts:"Arts & Culture", food:"Food & Drink", markets:"Markets", outdoors:"Outdoors", comedy:"Comedy", sports:"Sports", community:"Community", nightlife:"Nightlife", family:"Family", other:"Other" };
 const FILTERS = ["all","music","nightlife","arts","comedy","food","markets","community","outdoors","sports","family","free"];
-const SOURCE_COLORS = { ticketmaster:"#026CDF", brisbanecouncil:"#FF9F1C", parkrun:"#2ECC71", fallback:"#555", community:"#C77DFF" };
+const SOURCE_COLORS = { ticketmaster:"#026CDF", brisbanecouncil:"#FF9F1C", parkrun:"#2ECC71", recurring:"#C77DFF", fallback:"#555", community:"#C77DFF" };
 
 // ── CONFIRMED REAL BRISBANE VENUES (all URLs verified working) ────────────────
 const VENUES = [
@@ -167,6 +167,57 @@ const ACTIVITIES = {
   ]
 };
 
+// ── RECURRING WEEKLY EVENTS ───────────────────────────────────────────────────
+// All verified from official venue websites — injected by day of week
+// dow: 0=Sun, 1=Mon, 2=Tue, 3=Wed, 4=Thu, 5=Fri, 6=Sat
+const RECURRING = [
+  // ── MONDAY ──
+  { dow:1, id:"rec_mon_archive_openmic", title:"Open Mic Night — Archive Beer Boutique", venue:"Archive Beer Boutique", suburb:"West End", time:"7:00 PM", price:"Free", isFree:true, category:"music", tags:["open mic","live music","free"], description:"Bring your guitar and jams every Monday from 7pm. Archive supplies the gear. Free entry, all welcome.", url:"https://www.archivebeerboutique.com.au/weekly-events" },
+  { dow:1, id:"rec_mon_newmarket_comedy", title:"Open Mic Comedy — Newmarket Hotel", venue:"Newmarket Hotel", suburb:"Newmarket", time:"7:00 PM", price:"Free", isFree:true, category:"comedy", tags:["comedy","open mic","free"], description:"Weekly open mic comedy hosted by Ro Campbell. New and experienced comedians welcome. Free entry.", url:"https://www.standup.com.au" },
+
+  // ── TUESDAY ──
+  { dow:2, id:"rec_tue_archive_trivia", title:"Free Trivia — Archive Beer Boutique", venue:"Archive Beer Boutique", suburb:"West End", time:"7:00 PM", price:"Free", isFree:true, category:"comedy", tags:["trivia","free","weekly"], description:"Brisbane's most popular craft beer bar hosts free weekly trivia with Quiz Meisters every Tuesday at 7pm. Book early — tables fill fast.", url:"https://www.quizmeisters.com/venues/qld-archive-beer-boutique" },
+  { dow:2, id:"rec_tue_dogtap_trivia", title:"Free Trivia — DogTap Brisbane", venue:"DogTap Brisbane", suburb:"Murarrie", time:"7:00 PM", price:"Free", isFree:true, category:"comedy", tags:["trivia","free","weekly"], description:"Weekly Quiz Meisters trivia at DogTap — Brisbane's favourite brewery taproom. Beer, trivia, good times every Tuesday.", url:"https://www.quizmeisters.com/venues/qld-dogtap-brisbane" },
+  { dow:2, id:"rec_tue_littlemiss_trivia", title:"Free Trivia — Little Miss Sunshine", venue:"Little Miss Sunshine", suburb:"Brisbane CBD", time:"6:00 PM", price:"Free", isFree:true, category:"comedy", tags:["trivia","free","weekly"], description:"Tuesday trivia at Little Miss Sunshine on Ann St. Quiz Meisters hosted, free to play, prizes to win.", url:"https://www.quizmeisters.com/venues/qld-little-miss-sunshine" },
+  { dow:2, id:"rec_tue_stock_international", title:"International Pub Meetup — Stock Exchange Hotel", venue:"Stock Exchange Hotel", suburb:"Brisbane CBD", time:"5:30 PM", price:"Free", isFree:true, category:"community", tags:["meetup","international","language exchange","free"], description:"Brisbane's longest-running international meetup. Meet locals and travellers from all over the world. Cheap drinks, 14,000+ members. Check Eventbrite for exact dates.", url:"https://www.eventbrite.com.au/o/naoko-and-daniel-49798450763" },
+
+  // ── WEDNESDAY ──
+  { dow:3, id:"rec_wed_finnmccools_trivia", title:"Free Trivia — Finn McCool's Irish Pub", venue:"Finn McCool's", suburb:"Fortitude Valley", time:"7:00 PM", price:"Free", isFree:true, category:"comedy", tags:["trivia","free","weekly"], description:"The best quiz night in The Valley every Wednesday. Hosted by Giggle Group with $17 pizza deals on the night.", url:"https://finnmccoolsbrisbane.com.au/whats-on/" },
+  { dow:3, id:"rec_wed_caxton_trivia", title:"Free Trivia — Caxton Street Brewing Co", venue:"Caxton Street Brewing Co", suburb:"Petrie Terrace", time:"7:00 PM", price:"Free", isFree:true, category:"comedy", tags:["trivia","free","weekly"], description:"Wednesday trivia at Caxton Street Brewing. Register from 6:30pm. Free to play with prizes including bar tabs, cases and merch.", url:"https://www.caxtonstreetbrewing.com.au" },
+  { dow:3, id:"rec_wed_paddo_trivia", title:"Free Trivia — The Paddo Inn", venue:"The Paddo Inn", suburb:"Paddington", time:"7:00 PM", price:"Free", isFree:true, category:"comedy", tags:["trivia","free","weekly"], description:"Every Wednesday at The Paddo — history, pop culture, sport and more. Great cocktails and pub classics on the night.", url:"https://thepaddo.com.au/trivia-night/" },
+  { dow:3, id:"rec_wed_roamer_trivia", title:"Free Trivia — Roamer Brisbane", venue:"Roamer Brisbane", suburb:"Brisbane CBD", time:"6:30 PM", price:"Free", isFree:true, category:"comedy", tags:["trivia","free","weekly"], description:"Weekly Quiz Meisters trivia at Roamer on George St, CBD. Free to play every Wednesday from 6:30pm.", url:"https://www.quizmeisters.com/venues/qld-roamer-brisbane" },
+  { dow:3, id:"rec_wed_goros_trivia", title:"Free Trivia — Goro's Brisbane", venue:"Goro's Brisbane", suburb:"Brisbane CBD", time:"7:00 PM", price:"Free", isFree:true, category:"comedy", tags:["trivia","free","weekly"], description:"Weekly Quiz Meisters trivia at Goro's in the CBD. Every Wednesday at 7pm. Free to play.", url:"https://www.quizmeisters.com/venues/qld-goros-brisbane" },
+  { dow:3, id:"rec_wed_stock_international", title:"International Pub Meetup — Stock Exchange Hotel", venue:"Stock Exchange Hotel", suburb:"Brisbane CBD", time:"5:30 PM", price:"Free", isFree:true, category:"community", tags:["meetup","international","language exchange","free"], description:"Brisbane's most popular international meetup every Wednesday. Meet working holiday makers, students, locals and expats. Cheap drinks, great people.", url:"https://www.eventbrite.com.au/o/naoko-and-daniel-49798450763" },
+  { dow:3, id:"rec_wed_sitdown_comedy", title:"Comedy Night — Sit Down Comedy Club", venue:"Sit Down Comedy Club", suburb:"Paddington", time:"8:00 PM", price:"Ticketed", isFree:false, category:"comedy", tags:["comedy","stand-up","weekly"], description:"Weekly Wednesday comedy at Brisbane's home of stand-up. Local and touring comedians every week. Book online.", url:"https://www.standup.com.au" },
+
+  // ── THURSDAY ──
+  { dow:4, id:"rec_thu_wickham_trivia", title:"Free Trivia — The Wickham Hotel", venue:"The Wickham Hotel", suburb:"Fortitude Valley", time:"6:30 PM", price:"Free", isFree:true, category:"comedy", tags:["trivia","free","lgbtq+"], description:"Weekly Quiz Meisters trivia at Brisbane's iconic Wickham Hotel. Free every Thursday from 6:30pm in one of Brisbane's most welcoming venues.", url:"https://www.quizmeisters.com/venues/qld-the-wickham" },
+  { dow:4, id:"rec_thu_point_trivia", title:"Free Trivia — The Point Brisbane Hotel", venue:"The Point Brisbane Hotel", suburb:"Kangaroo Point", time:"6:30 PM", price:"Free", isFree:true, category:"comedy", tags:["trivia","free","weekly"], description:"Weekly trivia at The Point Brisbane Hotel. River views, Quiz Meisters hosted, free to play every Thursday.", url:"https://www.quizmeisters.com/venues/qld-the-point-brisbane-hotel" },
+  { dow:4, id:"rec_thu_stock_international", title:"International Pub Meetup — Stock Exchange Hotel", venue:"Stock Exchange Hotel", suburb:"Brisbane CBD", time:"5:30 PM", price:"Free", isFree:true, category:"community", tags:["meetup","international","language exchange","free"], description:"Thursday edition of Brisbane's biggest international meetup. Runs fortnightly — check Eventbrite for the next date.", url:"https://www.eventbrite.com.au/o/naoko-and-daniel-49798450763" },
+  { dow:4, id:"rec_thu_sitdown_mitzi", title:"The Mitzi Project — Sit Down Comedy Club", venue:"Sit Down Comedy Club", suburb:"Paddington", time:"8:00 PM", price:"Ticketed", isFree:false, category:"comedy", tags:["comedy","stand-up","weekly"], description:"Every Thursday at Brisbane's home of comedy. Rotating lineup of local and touring comedians. Book online.", url:"https://www.standup.com.au" },
+
+  // ── FRIDAY ──
+  { dow:5, id:"rec_fri_pignwhistle_social", title:"International Social Mixer — Pig N Whistle", venue:"Pig N Whistle", suburb:"Fortitude Valley", time:"6:00 PM", price:"Free", isFree:true, category:"community", tags:["meetup","international","social","free"], description:"Friday night social for locals and internationals. Meet people from around the world over drinks. Free to attend — just show up.", url:"https://www.eventbrite.com.au/o/social-mixer-brisbane-84826375803" },
+  { dow:5, id:"rec_fri_sitdown_allsorts", title:"Comedy Allsorts — Sit Down Comedy Club", venue:"Sit Down Comedy Club", suburb:"Paddington", time:"8:00 PM", price:"Ticketed", isFree:false, category:"comedy", tags:["comedy","stand-up","weekly"], description:"Friday night comedy at Sit Down Comedy Club — mixed lineup of local favourites and fresh faces. Book online.", url:"https://www.standup.com.au" },
+
+  // ── SATURDAY ──
+  { dow:6, id:"rec_sat_sitdown_double", title:"Saturday Double Feature — Sit Down Comedy Club", venue:"Sit Down Comedy Club", suburb:"Paddington", time:"8:00 PM", price:"Ticketed", isFree:false, category:"comedy", tags:["comedy","stand-up","weekly"], description:"Two comedy shows in one night — Brisbane's biggest Saturday comedy lineup. Book early, sells out regularly.", url:"https://www.standup.com.au" },
+  { dow:6, id:"rec_sat_international_drinks", title:"Saturday Drinks — International Friends", venue:"Various Brisbane Venues", suburb:"Brisbane CBD", time:"6:00 PM", price:"Free", isFree:true, category:"community", tags:["meetup","international","social","free"], description:"Weekly Saturday meetup for locals and internationals. 14,000+ member group. Location varies — check Instagram @sdifbrisbane.", url:"https://www.meetup.com/saturday-drinks-international-friends/" },
+];
+
+function getRecurringEvents(date) {
+  const dow = new Date(date + "T12:00:00").getDay();
+  return RECURRING
+    .filter(e => e.dow === dow)
+    .map(e => ({
+      ...e,
+      isEvening: true,
+      isRecurring: true,
+      source: "recurring",
+      isLive: true,
+    }));
+}
+
 // ── PARKRUN EVENTS — injected on Saturdays ───────────────────────────────────
 // Every parkrun happens every Saturday at 7am — real events with date + location
 function getParkrunEvents(date) {
@@ -266,8 +317,9 @@ export default function App() {
       const data = await res.json();
       const comm = community.filter(e=>e.date===date).map(e=>({...e,source:"community",isLive:false}));
       const parkruns = getParkrunEvents(date);
-      setEvents([...data.events, ...parkruns, ...comm]);
-      setMeta({...data.meta, sources:{...data.meta.sources, parkrun: parkruns.length}});
+      const recurring = getRecurringEvents(date);
+      setEvents([...data.events, ...parkruns, ...recurring, ...comm]);
+      setMeta({...data.meta, sources:{...data.meta.sources, parkrun: parkruns.length, recurring: recurring.length}});
       setAppStatus("done");
     } catch(err) { setAppStatus("error"); }
   }
@@ -352,6 +404,7 @@ export default function App() {
                   {meta.sources.ticketmaster>0&&<span className="pill tm">🔵 {meta.sources.ticketmaster} Ticketmaster</span>}
                   {meta.sources.brisbanecouncil>0&&<span className="pill bcc">🟠 {meta.sources.brisbanecouncil} BCC</span>}
                   {meta.sources.parkrun>0&&<span className="pill pr">🟢 {meta.sources.parkrun} Parkrun</span>}
+                  {meta.sources.recurring>0&&<span className="pill rc">🟣 {meta.sources.recurring} Weekly</span>}
                 </div>
               </div>
             )}
@@ -577,6 +630,7 @@ export default function App() {
         .pill.tm{background:rgba(2,108,223,0.15);color:#4CC9F0}
         .pill.bcc{background:rgba(255,140,0,0.15);color:#FF9F1C}
         .pill.pr{background:rgba(46,204,113,0.15);color:#2ECC71}
+        .pill.rc{background:rgba(199,125,255,0.15);color:#C77DFF}
         .pill.fb{background:rgba(255,255,255,0.06);color:#777}
 
         .loading-wrap{padding:20px 16px}
@@ -699,7 +753,8 @@ function EventCard({e,expanded,onToggle,delay=0}){
   return(
     <div className={`event-card${expanded?" expanded":""}`} onClick={onToggle} style={{animationDelay:`${delay}ms`}}>
       <div className="card-accent" style={{background:color}}/>
-      {e.isLive&&<div className="live-badge">LIVE</div>}
+      {e.isRecurring&&<div className="live-badge" style={{background:"rgba(199,125,255,0.2)",color:"#C77DFF"}}>🔁 WEEKLY</div>}
+      {e.isLive&&!e.isRecurring&&<div className="live-badge">LIVE</div>}
       <div className="card-top">
         <div className="card-title" style={{paddingRight:e.isLive?40:0}}>{e.title}</div>
         <div className={`price-badge ${priceClass}`}>{priceLabel}</div>
@@ -728,7 +783,7 @@ function EventCard({e,expanded,onToggle,delay=0}){
           </div>
           <div className="card-source">
             <span className="source-dot" style={{background:color}}/>
-            {e.source==="ticketmaster"?"Ticketmaster":e.source==="brisbanecouncil"?"Brisbane City Council":e.source==="community"?"Community submission":"Venue guide"}
+            {e.source==="ticketmaster"?"Ticketmaster":e.source==="brisbanecouncil"?"Brisbane City Council":e.source==="parkrun"?"Parkrun Australia":e.source==="recurring"?"Weekly recurring event":e.source==="community"?"Community submission":"Venue guide"}
           </div>
         </div>
       )}

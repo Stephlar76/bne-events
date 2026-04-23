@@ -389,6 +389,8 @@ export default function App() {
       setAppStatus("done");
     } catch(err) { setAppStatus("error"); }
   }
+
+  function grouped() {
     const order=["music","nightlife","arts","comedy","food","markets","community","outdoors","sports","family","other"];
     const map={};
     filtered.forEach(e=>{const c=e.category||"other";if(!map[c])map[c]=[];map[c].push(e);});

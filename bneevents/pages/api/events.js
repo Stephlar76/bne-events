@@ -193,14 +193,26 @@ function isEveningTime(timeStr) {
   return hour >= 6 && hour <= 11; // 6pm–11pm only
 }
 function parseBCCTime(r) {
-  // formatteddatetime looks like "Thursday, 23 April 2026, 10am - 2:30pm"
-  // or "Saturday, 25 April 2026, 7:30pm"
-  // Extract the START time only
+  // formatteddatetime examples:
+  // "Thursday, 23 April 2026, 10am - 2:30pm"     ← start has am/pm ✅
+  // "Saturday, 25 April 2026, 7:30pm"             ← single time ✅
+  // "Friday, 24 April 2026, 9:30 - 10:30am"      ← start has NO am/pm, use UTC fallback
   const fmt = r.formatteddatetime || "";
-  const timeMatch = fmt.match(/,\s*(\d+(?::\d+)?(?:am|pm))/i);
-  if (timeMatch) return timeMatch[1].toUpperCase();
 
-  // Fallback: parse start_datetime as UTC and convert to Brisbane time
+  if (fmt) {
+    const timePart = fmt.split(",").pop().trim();
+    // Only use formatteddatetime if the FIRST time token has am/pm
+    // e.g. "10am - 2:30pm" → first token "10am" has am/pm ✅
+    // e.g. "9:30 - 10:30am" → first token "9:30" has no am/pm → skip, use UTC
+    const firstTime = timePart.match(/^(\d+(?::\d+)?)\s*(am|pm)?/i);
+    if (firstTime && firstTime[2]) {
+      // Start time has am/pm — reliable, use it
+      return (firstTime[1] + firstTime[2]).toUpperCase();
+    }
+    // Start time has no am/pm — fall through to UTC parse
+  }
+
+  // UTC fallback — always correct since BCC stores in UTC and Brisbane = UTC+10
   const startDate = r.start_datetime || "";
   if (!startDate) return "";
   try {

@@ -8,29 +8,70 @@ const SOURCE_COLORS = { ticketmaster:"#026CDF", brisbanecouncil:"#FF9F1C", parkr
 
 // ── CONFIRMED REAL BRISBANE VENUES (all URLs verified working) ────────────────
 const VENUES = [
-  // MUSIC
-  { id:"v1", cat:"music", name:"The Triffid", suburb:"Newstead", type:"Live Music Venue", desc:"Brisbane's home of live music in a converted WW2 hangar. Intimate shows across multiple spaces with a great beer garden.", url:"https://www.thetriffid.com.au/whats-on" },
-  { id:"v2", cat:"music", name:"Fortitude Music Hall", suburb:"Fortitude Valley", type:"Live Music Venue", desc:"Brisbane's grandest live music venue. Stunning heritage building hosting major national and international acts.", url:"https://www.thefortitude.com.au/whats-on" },
-  { id:"v3", cat:"music", name:"The Tivoli", suburb:"Fortitude Valley", type:"Live Music Venue", desc:"Brisbane's original home of live music since 1989. Fiercely independent, locally owned and loved.", url:"https://thetivoli.com.au/events" },
-  { id:"v4", cat:"music", name:"Crowbar Brisbane", suburb:"Fortitude Valley", type:"Live Music Bar", desc:"Punk, hardcore and metal bar at the old Zoo venue on Ann St. Open plan, laid back, brilliant atmosphere.", url:"https://crowbarbrisbane.com/tickets/" },
-  { id:"v5", cat:"music", name:"Brisbane Powerhouse", suburb:"New Farm", type:"Arts & Music Venue", desc:"Queensland's home for contemporary culture. Theatre, comedy, music festivals and more in a stunning riverside venue.", url:"https://brisbanepowerhouse.org/events/" },
-  { id:"v6", cat:"music", name:"QPAC", suburb:"South Brisbane", type:"Performing Arts Centre", desc:"Queensland's premier performing arts centre. Opera, ballet, theatre and major productions.", url:"https://www.qpac.com.au/whats-on" },
-  // NIGHTLIFE
-  { id:"v7", cat:"nightlife", name:"Cloudland", suburb:"Fortitude Valley", type:"Nightclub & Bar", desc:"Brisbane's most iconic nightclub. Multiple rooms, retractable roof garden, world-class DJs every weekend.", url:"https://www.cloudland.tv/whats-on-cloudland/" },
-  { id:"v8", cat:"nightlife", name:"The Wickham Hotel", suburb:"Fortitude Valley", type:"LGBTQ+ Pub & Bar", desc:"Brisbane's iconic LGBTQ+ venue. Drag shows, DJ nights, rooftop bar and a welcoming crowd every night.", url:"https://thewickham.com.au/live-entertainment/" },
-  { id:"v9", cat:"nightlife", name:"Black Bear Lodge", suburb:"Fortitude Valley", type:"Live Music Bar", desc:"Intimate live music bar at 322 Brunswick St. Local and touring acts, free entry most nights.", url:"https://blackbearlodge.bar/events" },
-  // ARTS
+  // ── MUSIC ──
+  { id:"v1",  cat:"music", name:"The Triffid", suburb:"Newstead", type:"Live Music Venue", desc:"Brisbane's home of live music in a converted WW2 hangar. Intimate shows across multiple spaces with a great beer garden.", url:"https://www.thetriffid.com.au/whats-on" },
+  { id:"v2",  cat:"music", name:"Fortitude Music Hall", suburb:"Fortitude Valley", type:"Live Music Venue", desc:"Brisbane's grandest live music venue. Stunning heritage building hosting major national and international acts.", url:"https://www.thefortitude.com.au/whats-on" },
+  { id:"v3",  cat:"music", name:"The Tivoli", suburb:"Fortitude Valley", type:"Live Music Venue", desc:"Brisbane's original home of live music since 1989. Fiercely independent, locally owned and loved.", url:"https://thetivoli.com.au/events" },
+  { id:"v4",  cat:"music", name:"Crowbar Brisbane", suburb:"Fortitude Valley", type:"Live Music Bar", desc:"Punk, hardcore and metal bar at the old Zoo venue on Ann St. Open plan, laid back, brilliant atmosphere.", url:"https://crowbarbrisbane.com/tickets/" },
+  { id:"v5",  cat:"music", name:"Brisbane Powerhouse", suburb:"New Farm", type:"Arts & Music Venue", desc:"Queensland's home for contemporary culture. Theatre, comedy, music festivals and more in a stunning riverside venue.", url:"https://brisbanepowerhouse.org/events/" },
+  { id:"v6",  cat:"music", name:"QPAC", suburb:"South Brisbane", type:"Performing Arts Centre", desc:"Queensland's premier performing arts centre. Opera, ballet, theatre and major productions.", url:"https://www.qpac.com.au/whats-on" },
+  // ── STADIUMS ──
+  { id:"v21", cat:"sports", name:"Suncorp Stadium", suburb:"Milton", type:"Stadium — NRL, Rugby, Concerts", desc:"52,500 capacity home of the Brisbane Broncos, State of Origin and major concerts. Ed Sheeran, AC/DC and more in 2026.", url:"https://suncorpstadium.com.au/whats-on" },
+  { id:"v22", cat:"sports", name:"The Gabba", suburb:"Woolloongabba", type:"Stadium — AFL, Cricket, Events", desc:"Home of the Brisbane Lions and Queensland cricket. Major AFL fixtures and international cricket throughout the year.", url:"https://thegabba.com.au/whats-on" },
+  { id:"v23", cat:"sports", name:"Riverstage", suburb:"Brisbane City", type:"Outdoor Concert Venue", desc:"9,500 capacity iconic outdoor venue in the City Botanic Gardens. Major national and international concerts all year.", url:"https://www.songkick.com/venues/35555-riverstage-brisbane" },
+  { id:"v24", cat:"sports", name:"Brisbane Entertainment Centre", suburb:"Boondall", type:"Indoor Arena — Concerts & Events", desc:"Brisbane's largest indoor arena. Major international tours, WWE, comedy shows and family entertainment.", url:"https://www.brisent.com.au" },
+  { id:"v25", cat:"sports", name:"All Queensland Stadiums", suburb:"Various", type:"Sports & Events Calendar", desc:"One-stop calendar for all events across Suncorp, Gabba, Sleeman, QSAC and more. NRL, AFL, Super Rugby, Cricket.", url:"https://stadiums.qld.gov.au/whats-on" },
+  // ── NIGHTLIFE ──
+  { id:"v7",  cat:"nightlife", name:"Cloudland", suburb:"Fortitude Valley", type:"Nightclub & Bar", desc:"Brisbane's most iconic nightclub. Multiple rooms, retractable roof garden, world-class DJs every weekend.", url:"https://www.cloudland.tv/whats-on-cloudland/" },
+  { id:"v8",  cat:"nightlife", name:"The Wickham Hotel", suburb:"Fortitude Valley", type:"LGBTQ+ Pub & Bar", desc:"Brisbane's iconic LGBTQ+ venue. Drag shows, DJ nights, rooftop bar and a welcoming crowd every night.", url:"https://thewickham.com.au/live-entertainment/" },
+  { id:"v9",  cat:"nightlife", name:"Black Bear Lodge", suburb:"Fortitude Valley", type:"Live Music Bar", desc:"Intimate live music bar at 322 Brunswick St. Local and touring acts, free entry most nights.", url:"https://blackbearlodge.bar/events" },
+  // ── ARTS ──
   { id:"v11", cat:"arts", name:"GOMA", suburb:"South Brisbane", type:"Art Gallery", desc:"Gallery of Modern Art — world-class contemporary art. Free entry to permanent collection. Special exhibitions vary.", url:"https://www.qagoma.qld.gov.au/whats-on/" },
   { id:"v12", cat:"arts", name:"Metro Arts", suburb:"West End", type:"Contemporary Arts Centre", desc:"Brisbane's home for independent contemporary arts. Exhibitions, performances and creative community events.", url:"https://metroarts.com.au/whats-on/" },
-  // COMEDY
+  // ── COMEDY ──
   { id:"v13", cat:"comedy", name:"Sit Down Comedy Club", suburb:"Paddington", type:"Comedy Club", desc:"Brisbane's dedicated stand-up comedy club since 1992. Weekly shows from local and international comedians.", url:"https://www.standup.com.au" },
-  // FOOD
+  // ── MARKETS ──
   { id:"v14", cat:"markets", name:"West End Markets", suburb:"West End", type:"Weekend Market — Every Saturday", desc:"Every Saturday 6am–2pm at Davies Park. 150+ vendors, fresh produce, street food, live music. Free entry.", url:"https://westendmarket.com.au" },
   { id:"v15", cat:"markets", name:"Jan Powers Farmers Markets", suburb:"New Farm & Manly", type:"Farmers Market — Weekly", desc:"Saturdays at Brisbane Powerhouse (6am–12pm). Also Manly 1st & 3rd Saturday, Eagle Farm every Sunday.", url:"https://www.janpowersfarmersmarkets.com.au" },
+  // ── FOOD ──
   { id:"v16", cat:"food", name:"Howard Smith Wharves", suburb:"Brisbane City", type:"Dining & Bar Precinct", desc:"Stunning riverside precinct under the Story Bridge. Bars, restaurants and regular public events.", url:"https://howardsmithwharves.com/whats-on/" },
-  // COMMUNITY
+  // ── COMMUNITY ──
   { id:"v19", cat:"community", name:"Brisbane Meetup Groups", suburb:"Various", type:"Social Meetups", desc:"Hundreds of Brisbane Meetup groups — hiking, language exchange, board games, tech, trivia and more.", url:"https://www.meetup.com/find/au--brisbane/" },
   { id:"v20", cat:"community", name:"River City Labs", suburb:"Fortitude Valley", type:"Tech & Startup Hub", desc:"Queensland's leading tech innovation hub. Workshops, networking events, founder meetups and startup programs.", url:"https://rivercitylabs.acs.org.au/go-virtual.html" },
+];
+
+// ── DISCOVERY & SPECIALS LINKS ────────────────────────────────────────────────
+// Grouped sections shown at the bottom of the Venues tab
+const DISCOVERY_SECTIONS = [
+  {
+    title: "🍺 Happy Hours & Drink Specials",
+    desc: "Find confirmed weekly drink specials, happy hours and food deals across Brisbane venues.",
+    links: [
+      { name:"Eat Drink Cheap Brisbane", desc:"Best verified source — hundreds of Brisbane specials by suburb and day, updated 2026.", url:"https://eatdrinkcheap.com.au/brisbane" },
+      { name:"The Happiest Hour Brisbane", desc:"Happy hours, drink deals and food specials at Brisbane bars and pubs.", url:"https://thehappiesthour.com/brisbane" },
+    ]
+  },
+  {
+    title: "🎟️ Buy Tickets",
+    desc: "Brisbane event ticketing platforms for concerts, comedy, sports and community events.",
+    links: [
+      { name:"Eventbrite Brisbane", desc:"Community events, workshops, social mixers, comedy, fitness and food events.", url:"https://www.eventbrite.com.au/d/australia--brisbane-city/events/" },
+      { name:"Humanitix Brisbane", desc:"Australian community events — arts, workshops, not-for-profit events.", url:"https://humanitix.com/au/events/australia/brisbane" },
+      { name:"Oztix", desc:"Independent music and festival tickets — Crowbar Brisbane and smaller venues.", url:"https://www.oztix.com.au" },
+      { name:"Moshtix", desc:"Live music and entertainment — specialist in indie gigs and smaller Brisbane venues.", url:"https://www.moshtix.com.au" },
+      { name:"Songkick Brisbane", desc:"Every upcoming concert and tour date in Brisbane, with ticket links.", url:"https://www.songkick.com/metro-areas/26778-australia-brisbane" },
+    ]
+  },
+  {
+    title: "📰 What's On Guides",
+    desc: "Brisbane's best editorial guides for events, bars, restaurants and things to do.",
+    links: [
+      { name:"The Urban List Brisbane", desc:"Brisbane's most trusted editorial events guide — concerts, festivals, food and nightlife.", url:"https://www.theurbanlist.com/brisbane/a-list/whats-on-brisbane" },
+      { name:"Concrete Playground Brisbane", desc:"Best bars, restaurants, pop-ups and events in Brisbane.", url:"https://concreteplayground.com/brisbane/events" },
+      { name:"Time Out Brisbane", desc:"International events guide covering things to do in Brisbane.", url:"https://www.timeout.com/brisbane" },
+      { name:"Broadsheet Brisbane", desc:"Premium editorial — festivals, food events and Brisbane culture.", url:"https://www.broadsheet.com.au/brisbane" },
+    ]
+  },
 ];
 
 // ── ACTIVITIES — 3-level hierarchy: Subcat → Type → Items ────────────────────
@@ -259,6 +300,7 @@ export default function App() {
   const [openSubcats, setOpenSubcats] = useState([]);
   const [openTypes, setOpenTypes] = useState([]);
   const [openCats, setOpenCats] = useState([]);
+  const [tonightOnly, setTonightOnly] = useState(false);
   const [appStatus, setAppStatus] = useState("idle");
   const [meta, setMeta] = useState(null);
   const [expandedId, setExpandedId] = useState(null);
@@ -297,19 +339,23 @@ export default function App() {
 
   // Filter logic — nightlife includes evening music/arts/comedy
   const filtered = (() => {
-    if (filter === "all") return events;
-    if (filter === "free") return events.filter(e => e.isFree);
-    if (filter === "nightlife") return events.filter(e =>
+    let base = events;
+    // Tonight mode: only events starting 6pm or later
+    if (tonightOnly) base = base.filter(e => e.isEvening || (e.time && /[6-9]|10|11/i.test(e.time) && /pm/i.test(e.time)));
+    if (filter === "all") return base;
+    if (filter === "free") return base.filter(e => e.isFree);
+    if (filter === "nightlife") return base.filter(e =>
       e.category === "nightlife" ||
       (e.isEvening && ["music","arts","comedy"].includes(e.category))
     );
-    return events.filter(e => e.category === filter);
+    return base.filter(e => e.category === filter);
   })();
 
   // Venue guide filter
   const filteredVenues = filter === "all" ? VENUES : VENUES.filter(v => v.cat === filter);
 
   async function search() {
+    setTonightOnly(false);
     setAppStatus("loading"); setExpandedId(null); setEvents([]); setMeta(null);
     try {
       const res = await fetch(`/api/events?date=${date}`);
@@ -324,7 +370,25 @@ export default function App() {
     } catch(err) { setAppStatus("error"); }
   }
 
-  function grouped() {
+  async function searchTonight() {
+    // Tonight = today's date, filter to events starting 6pm or later
+    const today = todayStr();
+    setDate(today);
+    setTonightOnly(true);
+    setFilter("all");
+    setAppStatus("loading"); setExpandedId(null); setEvents([]); setMeta(null);
+    try {
+      const res = await fetch(`/api/events?date=${today}`);
+      if (!res.ok) throw new Error("API error");
+      const data = await res.json();
+      const comm = community.filter(e=>e.date===today).map(e=>({...e,source:"community",isLive:false}));
+      const parkruns = getParkrunEvents(today);
+      const recurring = getRecurringEvents(today);
+      setEvents([...data.events, ...parkruns, ...recurring, ...comm]);
+      setMeta({...data.meta, sources:{...data.meta.sources, parkrun: parkruns.length, recurring: recurring.length}});
+      setAppStatus("done");
+    } catch(err) { setAppStatus("error"); }
+  }
     const order=["music","nightlife","arts","comedy","food","markets","community","outdoors","sports","family","other"];
     const map={};
     filtered.forEach(e=>{const c=e.category||"other";if(!map[c])map[c]=[];map[c].push(e);});
@@ -376,6 +440,9 @@ export default function App() {
               <button onClick={search} disabled={appStatus==="loading"} className="find-btn">
                 {appStatus==="loading"?"⏳":"🔍 Find"}
               </button>
+              <button onClick={searchTonight} disabled={appStatus==="loading"} className="tonight-btn">
+                🌙 Tonight
+              </button>
             </div>
           )}
         </header>
@@ -396,6 +463,7 @@ export default function App() {
             {appStatus==="done"&&meta&&(
               <div className="stats-bar">
                 <div className="stats-row">
+                  {tonightOnly&&<span className="tonight-badge">🌙 Tonight</span>}
                   <span className="count">{filtered.length}</span>
                   <span className="stats-text"> events · {getDOW(date)}</span>
                   <span className="stats-date">{getFmt(date)}</span>
@@ -500,6 +568,22 @@ export default function App() {
                 <div className="empty-sub">No venues in this category yet.</div>
               </div>
             )}
+            {/* Discovery sections — shown when filter is "all" */}
+            {filter==="all"&&DISCOVERY_SECTIONS.map(section=>(
+              <div key={section.title} className="discovery-section">
+                <div className="section-header" style={{cursor:"default"}}>
+                  <span>{section.title}</span><div className="divider"/>
+                </div>
+                <p style={{fontSize:"0.75rem",color:"#777",marginBottom:10}}>{section.desc}</p>
+                {section.links.map(link=>(
+                  <div key={link.url} className="discovery-card">
+                    <div className="discovery-name">{link.name}</div>
+                    <div className="discovery-desc">{link.desc}</div>
+                    <a href={link.url} target="_blank" rel="noopener noreferrer" className="btn-discovery">Visit →</a>
+                  </div>
+                ))}
+              </div>
+            ))}
           </div>
         )}
 
@@ -614,6 +698,10 @@ export default function App() {
         .date-input:focus{border-color:#F5E642}
         .find-btn{background:#F5E642;color:#0A0A0A;border:none;border-radius:10px;padding:10px 20px;font-family:inherit;font-weight:700;font-size:0.9rem;cursor:pointer}
         .find-btn:disabled{opacity:0.6;background:#3a3a00}
+        .tonight-btn{background:#1a1a2e;color:#C77DFF;border:1px solid #C77DFF;border-radius:10px;padding:10px 14px;font-family:inherit;font-weight:700;font-size:0.85rem;cursor:pointer;white-space:nowrap}
+        .tonight-btn:disabled{opacity:0.6}
+        .tonight-btn:active{transform:scale(0.95)}
+        .tonight-badge{background:rgba(199,125,255,0.15);color:#C77DFF;font-size:0.65rem;font-weight:700;padding:2px 8px;border-radius:10px;text-transform:uppercase;letter-spacing:0.5px;margin-right:4px}
 
         .filter-bar{display:flex;gap:8px;overflow-x:auto;padding:10px 16px;border-bottom:1px solid #252525;scrollbar-width:none}
         .chip{background:#181818;color:#777;border:1px solid #252525;border-radius:20px;padding:6px 14px;font-size:0.75rem;font-weight:500;white-space:nowrap;cursor:pointer;flex-shrink:0;font-family:inherit;transition:all 0.15s}
@@ -719,6 +807,14 @@ export default function App() {
         .btn-act{display:block;border:none;border-radius:7px;padding:9px 14px;font-weight:700;font-size:0.78rem;text-decoration:none;text-align:center;font-family:inherit;cursor:pointer}
         .btn-act-free{background:#2ECC71;color:#0A0A0A}
         .btn-act-book{background:#F5E642;color:#0A0A0A}
+
+        /* DISCOVERY SECTIONS */
+        .discovery-section{margin-top:8px}
+        .discovery-card{background:#181818;border:1px solid #252525;border-radius:12px;padding:14px;margin-bottom:8px}
+        .discovery-name{font-size:0.88rem;font-weight:700;color:#E8E8E8;margin-bottom:4px}
+        .discovery-desc{font-size:0.75rem;color:#777;line-height:1.5;margin-bottom:10px}
+        .btn-discovery{display:inline-block;background:#252525;color:#E8E8E8;border:none;border-radius:7px;padding:7px 14px;font-weight:600;font-size:0.78rem;text-decoration:none;font-family:inherit;cursor:pointer}
+        .btn-discovery:hover{background:#333}
 
         .fab{position:fixed;bottom:20px;right:16px;background:#F5E642;color:#0A0A0A;border:none;border-radius:30px;padding:13px 22px;font-family:inherit;font-weight:700;font-size:0.85rem;cursor:pointer;z-index:40;box-shadow:0 4px 24px rgba(245,230,66,0.4)}
         .fab:active{opacity:0.8}

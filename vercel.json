@@ -1,4 +1,6 @@
 {
+  "buildCommand": "cd bneevents && npm run build",
+  "outputDirectory": "bneevents/.next",
   "crons": [
     {
       "path": "/api/sync-facebook",

@@ -296,6 +296,64 @@ async function fetchRiverstage(date) {
   return records.map(r => mapBCCRecord(r, "riverstage-events"));
 }
 
+// ── SUPABASE — FACEBOOK EVENTS ────────────────────────────────────────────────
+// Reads pre-scraped Facebook events from Supabase for the requested date.
+// Events are populated daily by pages/api/sync-facebook.js cron job.
+async function fetchFacebookEvents(date) {
+  const supabaseUrl = process.env.SUPABASE_URL;
+  const supabaseKey = process.env.SUPABASE_ANON_KEY || process.env.SUPABASE_SERVICE_KEY;
+  if (!supabaseUrl || !supabaseKey) return [];
+
+  try {
+    const res = await fetch(
+      `${supabaseUrl}/rest/v1/facebook_events?date=eq.${date}&order=users_interested.desc&limit=200`,
+      {
+        headers: {
+          "apikey": supabaseKey,
+          "Authorization": `Bearer ${supabaseKey}`,
+        },
+      }
+    );
+    if (!res.ok) return [];
+    const rows = await res.json();
+    if (!Array.isArray(rows)) return [];
+
+    return rows.map(r => ({
+      id: r.id,
+      title: r.title,
+      venue: r.venue || "Brisbane",
+      suburb: extractSuburb(r.address || r.venue || ""),
+      address: r.address || "",
+      time: r.time || "",
+      price: r.is_free ? "Free" : "Ticketed",
+      isFree: r.is_free || false,
+      isEvening: r.is_evening || isEveningTime(r.time || ""),
+      category: r.category || "other",
+      tags: [r.category].filter(Boolean),
+      description: r.organized_by ? `Organised by ${r.organized_by}` : "",
+      url: r.url || "https://www.facebook.com/events",
+      image: null,
+      source: "facebook",
+      isLive: true,
+    }));
+  } catch (err) {
+    console.error("Supabase fetch error:", err.message);
+    return [];
+  }
+}
+
+// Extract suburb from address string e.g. "711 Ann St, Fortitude Valley QLD"
+function extractSuburb(address) {
+  const suburbs = ["Fortitude Valley", "New Farm", "West End", "South Bank",
+    "Newstead", "Paddington", "Milton", "Kangaroo Point", "Woolloongabba",
+    "Spring Hill", "Toowong", "St Lucia", "Kelvin Grove", "Bowen Hills",
+    "Hamilton", "Ascot", "Teneriffe", "Bulimba", "Hawthorne", "Highgate Hill"];
+  for (const s of suburbs) {
+    if (address.toLowerCase().includes(s.toLowerCase())) return s;
+  }
+  return "Brisbane";
+}
+
 function dedup(arr) {
   const seen = new Set();
   return arr.filter(e => {
@@ -313,20 +371,21 @@ export default async function handler(req, res) {
   if (!date || !/^\d{4}-\d{2}-\d{2}$/.test(date)) return res.status(400).json({ error: "Invalid date" });
 
   try {
-    const [tmResult, bccResult, riverstageResult] = await Promise.allSettled([
+    const [tmResult, bccResult, riverstageResult, fbResult] = await Promise.allSettled([
       fetchTicketmaster(date),
       fetchBrisbaneCityCouncil(date),
       fetchRiverstage(date),
+      fetchFacebookEvents(date),
     ]);
 
     const tmEvents         = tmResult.status         === "fulfilled" ? tmResult.value         : [];
     const bccEvents        = bccResult.status        === "fulfilled" ? bccResult.value        : [];
     const riverstageEvents = riverstageResult.status === "fulfilled" ? riverstageResult.value : [];
+    const fbEvents         = fbResult.status         === "fulfilled" ? fbResult.value         : [];
 
-    // Dedup Riverstage against master BCC (some events may overlap)
-    const liveEvents = dedup([...tmEvents, ...bccEvents, ...riverstageEvents]);
+    const liveEvents = dedup([...tmEvents, ...bccEvents, ...riverstageEvents, ...fbEvents]);
 
-    console.log(`Total: TM=${tmEvents.length} BCC=${bccEvents.length} Riverstage=${riverstageEvents.length} Live=${liveEvents.length}`);
+    console.log(`Total: TM=${tmEvents.length} BCC=${bccEvents.length} Riverstage=${riverstageEvents.length} FB=${fbEvents.length} Live=${liveEvents.length}`);
 
     res.setHeader("Cache-Control", "no-store, max-age=0");
     return res.status(200).json({
@@ -338,6 +397,7 @@ export default async function handler(req, res) {
         sources: {
           ticketmaster: tmEvents.length,
           brisbanecouncil: bccEvents.length + riverstageEvents.length,
+          facebook: fbEvents.length,
           fallback: 0,
         }
       }

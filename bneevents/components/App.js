@@ -476,6 +476,7 @@ export default function App() {
                 <div className="stats-sources">
                   {meta.sources.ticketmaster>0&&<span className="pill tm">🔵 {meta.sources.ticketmaster} Ticketmaster</span>}
                   {meta.sources.brisbanecouncil>0&&<span className="pill bcc">🟠 {meta.sources.brisbanecouncil} BCC</span>}
+                  {meta.sources.facebook>0&&<span className="pill fb">🔴 {meta.sources.facebook} Facebook</span>}
                   {meta.sources.parkrun>0&&<span className="pill pr">🟢 {meta.sources.parkrun} Parkrun</span>}
                   {meta.sources.recurring>0&&<span className="pill rc">🟣 {meta.sources.recurring} Weekly</span>}
                 </div>
